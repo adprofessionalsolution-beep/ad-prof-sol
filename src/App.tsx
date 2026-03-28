@@ -36,7 +36,8 @@ import {
   FileCheck,
   Bell,
   MessageCircle,
-  LogOut
+  LogOut,
+  Lock
 } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 // @ts-ignore
@@ -49,7 +50,7 @@ import { cn } from './lib/utils';
 // Set PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
-type Tab = 'home' | 'analyzer' | 'certificate' | 'escalation' | 'bankruptcy' | 'pricing' | 'tender-update';
+type Tab = 'home' | 'analyzer' | 'certificate' | 'escalation' | 'bankruptcy' | 'pricing' | 'tender-update' | 'admin';
 
 interface UserData {
   name: string;
@@ -57,6 +58,9 @@ interface UserData {
   whatsapp: string;
   password?: string;
   isAdmin?: boolean;
+  plan?: string;
+  status?: 'active' | 'cancelled';
+  subscriptionEnd?: string;
 }
 
 interface TenderUpdate {
@@ -67,9 +71,117 @@ interface TenderUpdate {
   description: string;
 }
 
+function AdminDashboard() {
+  const [clients, setClients] = useState<UserData[]>([]);
+
+  useEffect(() => {
+    const users = JSON.parse(localStorage.getItem('ad_pro_users') || '[]');
+    setClients(users.filter((u: UserData) => !u.isAdmin));
+  }, []);
+
+  const handleStatusChange = (email: string, action: 'cancel' | 'extend', newPlan?: string) => {
+    const allUsers = JSON.parse(localStorage.getItem('ad_pro_users') || '[]');
+    const updatedUsers = allUsers.map((u: UserData) => {
+      if (u.email === email) {
+        if (action === 'cancel') {
+          return { ...u, status: 'cancelled', plan: 'Free Plan' };
+        } else if (action === 'extend') {
+          const currentEnd = u.subscriptionEnd ? new Date(u.subscriptionEnd) : new Date();
+          const newEnd = new Date(currentEnd.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+          return { ...u, status: 'active', subscriptionEnd: newEnd, plan: newPlan || u.plan };
+        }
+      }
+      return u;
+    });
+    localStorage.setItem('ad_pro_users', JSON.stringify(updatedUsers));
+    setClients(updatedUsers.filter((u: UserData) => !u.isAdmin));
+  };
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight text-slate-900">Admin Dashboard</h1>
+          <p className="mt-2 text-slate-600">Manage client subscriptions and details.</p>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-slate-600">
+            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+              <tr>
+                <th className="px-6 py-4 font-semibold">Client Details</th>
+                <th className="px-6 py-4 font-semibold">Plan</th>
+                <th className="px-6 py-4 font-semibold">Status</th>
+                <th className="px-6 py-4 font-semibold">Expires On</th>
+                <th className="px-6 py-4 text-right font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {clients.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-slate-500">No clients found.</td>
+                </tr>
+              ) : clients.map((client) => (
+                <tr key={client.email} className="hover:bg-slate-50">
+                  <td className="px-6 py-4">
+                    <div className="font-medium text-slate-900">{client.name}</div>
+                    <div className="text-xs text-slate-500">{client.email}</div>
+                    <div className="text-xs text-slate-500">{client.whatsapp}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-blue-600/20 ring-inset">
+                      {client.plan || 'Free Plan'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset", client.status === 'cancelled' ? "bg-red-50 text-red-700 ring-red-600/20" : "bg-green-50 text-green-700 ring-green-600/20")}>
+                      {client.status === 'cancelled' ? 'Cancelled' : 'Active'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    {client.subscriptionEnd ? new Date(client.subscriptionEnd).toLocaleDateString() : 'N/A'}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex flex-col items-end gap-2 sm:flex-row sm:justify-end">
+                      <select 
+                        className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-sea-green"
+                        onChange={(e) => handleStatusChange(client.email, 'extend', e.target.value)}
+                        value={client.plan || 'Free Plan'}
+                      >
+                        <option value="Free Plan">Free Plan</option>
+                        <option value="Pro Monthly">Pro Monthly</option>
+                        <option value="Yearly Plan">Yearly Plan</option>
+                      </select>
+                      <button
+                        onClick={() => handleStatusChange(client.email, 'extend', client.plan)}
+                        className="rounded-lg bg-sea-green px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-600"
+                      >
+                        Extend 30 Days
+                      </button>
+                      <button
+                        onClick={() => handleStatusChange(client.email, 'cancel')}
+                        className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-100"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isBidDocsOpen, setIsBidDocsOpen] = useState(false);
   const [user, setUser] = useState<UserData | null>(null);
   const [showSignup, setShowSignup] = useState(false);
   const [tenderUpdates, setTenderUpdates] = useState<TenderUpdate[]>([]);
@@ -100,6 +212,16 @@ export default function App() {
     localStorage.setItem('ad_pro_user', JSON.stringify(data));
     setUser(data);
     setShowSignup(false);
+  };
+
+  const handleUpdateUser = (updatedData: UserData) => {
+    localStorage.setItem('ad_pro_user', JSON.stringify(updatedData));
+    setUser(updatedData);
+    
+    // Also update in the users list
+    const users = JSON.parse(localStorage.getItem('ad_pro_users') || '[]');
+    const updatedUsers = users.map((u: UserData) => u.email === updatedData.email ? updatedData : u);
+    localStorage.setItem('ad_pro_users', JSON.stringify(updatedUsers));
   };
 
   const handleLogout = () => {
@@ -178,25 +300,42 @@ export default function App() {
             
             {/* Bid Documents Column */}
             <div className="flex flex-col gap-1.5 border-l-2 border-sea-green/20 pl-6 py-1">
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Bid Documents</span>
               <button 
-                onClick={() => setActiveTab('certificate')}
-                className={cn("text-[11px] font-bold uppercase tracking-wider transition-colors hover:text-sea-green text-left", activeTab === 'certificate' ? "text-sea-green" : "text-slate-600")}
+                onClick={() => setIsBidDocsOpen(!isBidDocsOpen)}
+                className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1 hover:text-sea-green transition-colors"
               >
-                MII Certificate
+                Bid Documents
+                <ChevronDown size={12} className={cn("transition-transform", isBidDocsOpen ? "rotate-180" : "")} />
               </button>
-              <button 
-                onClick={() => setActiveTab('escalation')}
-                className={cn("text-[11px] font-bold uppercase tracking-wider transition-colors hover:text-sea-green text-left", activeTab === 'escalation' ? "text-sea-green" : "text-slate-600")}
-              >
-                Escalation Matrix
-              </button>
-              <button 
-                onClick={() => setActiveTab('bankruptcy')}
-                className={cn("text-[11px] font-bold uppercase tracking-wider transition-colors hover:text-sea-green text-left", activeTab === 'bankruptcy' ? "text-sea-green" : "text-slate-600")}
-              >
-                Non-bankruptcy
-              </button>
+              <AnimatePresence>
+                {isBidDocsOpen && (
+                  <motion.div 
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="flex flex-col gap-1.5 overflow-hidden"
+                  >
+                    <button 
+                      onClick={() => setActiveTab('certificate')}
+                      className={cn("text-[11px] font-bold uppercase tracking-wider transition-colors hover:text-sea-green text-left", activeTab === 'certificate' ? "text-sea-green" : "text-slate-600")}
+                    >
+                      MII Certificate
+                    </button>
+                    <button 
+                      onClick={() => setActiveTab('escalation')}
+                      className={cn("text-[11px] font-bold uppercase tracking-wider transition-colors hover:text-sea-green text-left", activeTab === 'escalation' ? "text-sea-green" : "text-slate-600")}
+                    >
+                      Escalation Matrix
+                    </button>
+                    <button 
+                      onClick={() => setActiveTab('bankruptcy')}
+                      className={cn("text-[11px] font-bold uppercase tracking-wider transition-colors hover:text-sea-green text-left", activeTab === 'bankruptcy' ? "text-sea-green" : "text-slate-600")}
+                    >
+                      Non-bankruptcy
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             <button 
@@ -205,6 +344,14 @@ export default function App() {
             >
               Pricing
             </button>
+            {user?.isAdmin && (
+              <button 
+                onClick={() => setActiveTab('admin')}
+                className={cn("text-sm font-bold uppercase tracking-wider transition-colors hover:text-sea-green", activeTab === 'admin' ? "text-sea-green" : "text-slate-600")}
+              >
+                Admin
+              </button>
+            )}
             <button 
               onClick={() => setActiveTab('pricing')}
               className="rounded-xl bg-sea-green px-6 py-2.5 text-sm font-black uppercase tracking-widest text-white shadow-lg transition-all hover:bg-opacity-90 hover:shadow-sea-green/20 active:scale-95"
@@ -256,12 +403,32 @@ export default function App() {
                 <button onClick={() => { setActiveTab('tender-update'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Tender Update</button>
                 
                 <div className="border-y border-sea-green-light py-2">
-                  <p className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400">Bid Documents</p>
-                  <button onClick={() => { setActiveTab('certificate'); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-3 text-left font-bold text-slate-600 hover:bg-sea-green-light"><FileCheck size={18} /> MII Certificate</button>
-                  <button onClick={() => { setActiveTab('escalation'); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-3 text-left font-bold text-slate-600 hover:bg-sea-green-light"><Users size={18} /> Escalation Matrix</button>
-                  <button onClick={() => { setActiveTab('bankruptcy'); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-3 text-left font-bold text-slate-600 hover:bg-sea-green-light"><Scale size={18} /> Non-bankruptcy</button>
+                  <button 
+                    onClick={() => setIsBidDocsOpen(!isBidDocsOpen)}
+                    className="flex w-full items-center justify-between px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-sea-green transition-colors"
+                  >
+                    Bid Documents
+                    <ChevronDown size={14} className={cn("transition-transform", isBidDocsOpen ? "rotate-180" : "")} />
+                  </button>
+                  <AnimatePresence>
+                    {isBidDocsOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <button onClick={() => { setActiveTab('certificate'); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-3 text-left font-bold text-slate-600 hover:bg-sea-green-light"><FileCheck size={18} /> MII Certificate</button>
+                        <button onClick={() => { setActiveTab('escalation'); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-3 text-left font-bold text-slate-600 hover:bg-sea-green-light"><Users size={18} /> Escalation Matrix</button>
+                        <button onClick={() => { setActiveTab('bankruptcy'); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-3 text-left font-bold text-slate-600 hover:bg-sea-green-light"><Scale size={18} /> Non-bankruptcy</button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
                 <button onClick={() => { setActiveTab('pricing'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Pricing</button>
+                {user?.isAdmin && (
+                  <button onClick={() => { setActiveTab('admin'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Admin</button>
+                )}
                 <button onClick={() => { setActiveTab('pricing'); setIsMenuOpen(false); }} className="mt-2 rounded-xl bg-sea-green py-4 text-center font-black uppercase tracking-widest text-white shadow-lg">Get Started</button>
                 
                 {user && (
@@ -293,12 +460,59 @@ export default function App() {
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {activeTab === 'home' && <HomeView onServiceClick={(tab) => setActiveTab(tab)} />}
-        {activeTab === 'analyzer' && <AnalyzerView />}
-        {activeTab === 'tender-update' && <TenderUpdateView user={user} updates={tenderUpdates} onAddUpdate={addTenderUpdate} />}
-        {activeTab === 'certificate' && <CertificateView />}
-        {activeTab === 'escalation' && <EscalationView />}
-        {activeTab === 'bankruptcy' && <NonBankruptcyView />}
-        {activeTab === 'pricing' && <PricingView />}
+        {activeTab === 'analyzer' && (
+          user?.isAdmin || user?.plan === 'Pro Monthly' || user?.plan === 'Yearly Plan' ? (
+            <AnalyzerView />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <Lock size={48} className="mb-4 text-slate-300" />
+              <h2 className="text-2xl font-bold text-slate-900">Premium Feature</h2>
+              <p className="mt-2 text-slate-500">Upgrade to Pro or Yearly plan to access AI Bid Analyzer.</p>
+              <button onClick={() => setActiveTab('pricing')} className="mt-6 rounded-xl bg-sea-green px-6 py-3 font-bold text-white shadow-lg hover:bg-sea-green-dark">View Plans</button>
+            </div>
+          )
+        )}
+        {activeTab === 'tender-update' && (
+          <TenderUpdateView user={user} updates={tenderUpdates} onAddUpdate={addTenderUpdate} />
+        )}
+        {activeTab === 'certificate' && (
+          user?.isAdmin || user?.plan === 'Pro Monthly' || user?.plan === 'Yearly Plan' ? (
+            <CertificateView />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <Lock size={48} className="mb-4 text-slate-300" />
+              <h2 className="text-2xl font-bold text-slate-900">Premium Feature</h2>
+              <p className="mt-2 text-slate-500">Upgrade to Pro or Yearly plan to access MII Certificate Generator.</p>
+              <button onClick={() => setActiveTab('pricing')} className="mt-6 rounded-xl bg-sea-green px-6 py-3 font-bold text-white shadow-lg hover:bg-sea-green-dark">View Plans</button>
+            </div>
+          )
+        )}
+        {activeTab === 'escalation' && (
+          user?.isAdmin || user?.plan === 'Pro Monthly' || user?.plan === 'Yearly Plan' ? (
+            <EscalationView />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <Lock size={48} className="mb-4 text-slate-300" />
+              <h2 className="text-2xl font-bold text-slate-900">Premium Feature</h2>
+              <p className="mt-2 text-slate-500">Upgrade to Pro or Yearly plan to access Escalation Matrix.</p>
+              <button onClick={() => setActiveTab('pricing')} className="mt-6 rounded-xl bg-sea-green px-6 py-3 font-bold text-white shadow-lg hover:bg-sea-green-dark">View Plans</button>
+            </div>
+          )
+        )}
+        {activeTab === 'bankruptcy' && (
+          user?.isAdmin || user?.plan === 'Pro Monthly' || user?.plan === 'Yearly Plan' ? (
+            <NonBankruptcyView />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <Lock size={48} className="mb-4 text-slate-300" />
+              <h2 className="text-2xl font-bold text-slate-900">Premium Feature</h2>
+              <p className="mt-2 text-slate-500">Upgrade to Pro or Yearly plan to access Non-bankruptcy Certificate.</p>
+              <button onClick={() => setActiveTab('pricing')} className="mt-6 rounded-xl bg-sea-green px-6 py-3 font-bold text-white shadow-lg hover:bg-sea-green-dark">View Plans</button>
+            </div>
+          )
+        )}
+        {activeTab === 'pricing' && <PricingView user={user} onUpdateUser={handleUpdateUser} onLoginRequest={() => setShowSignup(true)} />}
+        {activeTab === 'admin' && user?.isAdmin && <AdminDashboard />}
       </main>
 
       <footer className="mt-20 border-t border-slate-100 bg-white py-16">
@@ -538,7 +752,10 @@ function SignupModal({ onSignup }: { onSignup: (data: UserData) => void }) {
     email: '',
     whatsapp: '',
     password: '',
-    isAdmin: false
+    isAdmin: false,
+    plan: 'Free Plan',
+    status: 'active',
+    subscriptionEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
   });
   const [adminKey, setAdminKey] = useState('');
 
@@ -757,7 +974,8 @@ function TenderUpdateView({ user, updates, onAddUpdate }: { user: UserData | nul
   };
 
   const openWhatsApp = () => {
-    const message = encodeURIComponent(`Hello A D Pro, I want to receive tender updates for: ${keywords || 'All Tenders'} in category: ${category}. My email is ${user?.email}.`);
+    const emailText = user?.email ? ` My email is ${user.email}.` : '';
+    const message = encodeURIComponent(`Hello A D Pro, I want to receive tender updates for: ${keywords || 'All Tenders'} in category: ${category}.${emailText}`);
     window.open(`https://wa.me/919876543210?text=${message}`, '_blank');
   };
 
@@ -1457,28 +1675,27 @@ function CertificateView() {
   );
 }
 
-function PricingView() {
+function PricingView({ user, onUpdateUser, onLoginRequest }: { user: UserData | null, onUpdateUser: (user: UserData) => void, onLoginRequest: () => void }) {
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
-  const upiId = "anuscyberwork@okaxis"; // Placeholder UPI ID
+  const [hasInitiatedPayment, setHasInitiatedPayment] = useState(false);
+  const upiId = "9851334382@ptyes"; // Updated UPI ID
+  const upiName = "A D professional Solution";
 
   const plans = [
     {
-      name: "Basic Monthly",
-      price: "99",
+      name: "Free Plan",
+      price: "0",
       period: "month",
       desc: "Essential updates for active GeM bidders.",
       features: [
-        "GeM Upcoming Bid Updates",
-        "MII Certificate Generator",
-        "Email Support",
-        "GeM Portal Consultation"
+        "GeM Upcoming Bid Updates"
       ],
-      cta: "Subscribe Basic",
+      cta: "Get Started",
       popular: false
     },
     {
       name: "Pro Monthly",
-      price: "149",
+      price: "1999",
       period: "month",
       desc: "Advanced tools for professional bidding.",
       features: [
@@ -1486,14 +1703,15 @@ function PricingView() {
         "GeM Upcoming Bid Updates",
         "MII Certificate Generator",
         "Priority Email Support",
-        "GeM Portal Consultation"
+        "GeM Portal Consultation",
+        "2 Bid perticipation by professional"
       ],
       cta: "Subscribe Pro",
       popular: true
     },
     {
       name: "Yearly Plan",
-      price: "999",
+      price: "9999",
       period: "year",
       desc: "Maximum value for serious government contractors.",
       features: [
@@ -1501,7 +1719,8 @@ function PricingView() {
         "GeM Upcoming Bid Updates",
         "MII Certificate Generator",
         "Priority Email Support",
-        "GeM Portal Consultation"
+        "GeM Portal Consultation",
+        "10 Bid perticipation by professional"
       ],
       cta: "Subscribe Yearly",
       popular: false
@@ -1509,14 +1728,12 @@ function PricingView() {
   ];
 
   const handleSubscribe = (plan: any) => {
-    setSelectedPlan(plan);
-    // Generate UPI URL
-    const upiUrl = `upi://pay?pa=${upiId}&pn=GeM%20Bid%20Analyzer&am=${plan.price}&cu=INR&tn=Subscription%20for%20${plan.name}`;
-    
-    // On mobile, this will open the UPI app directly
-    if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-      window.location.href = upiUrl;
+    if (!user) {
+      onLoginRequest();
+      return;
     }
+    setSelectedPlan(plan);
+    setHasInitiatedPayment(false);
   };
 
   return (
@@ -1592,14 +1809,18 @@ function PricingView() {
               </div>
 
               <div className="flex flex-col items-center gap-4">
-                <div className="flex h-48 w-48 items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white p-4">
-                  {/* QR Code Placeholder */}
-                  <div className="text-center">
-                    <QrCode size={64} className="mx-auto text-slate-300" />
-                    <p className="mt-2 text-xs text-slate-400 font-mono">{upiId}</p>
-                  </div>
+                <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white p-4">
+                  <h3 className="mb-2 text-sm font-bold text-slate-900">{upiName}</h3>
+                  <img 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiName)}&am=${selectedPlan.price}&cu=INR&tn=Subscription%20for%20${selectedPlan.name}`)}`}
+                    alt="UPI QR Code"
+                    className="h-48 w-48 rounded-lg"
+                    referrerPolicy="no-referrer"
+                  />
+                  <p className="mt-4 text-xs font-bold text-slate-500 font-mono">UPI ID: {upiId}</p>
+                  <p className="text-xs font-bold text-slate-500 font-mono">+91 87775 61824</p>
                 </div>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-slate-500 text-center">
                   Scan this QR code using any UPI app (GPay, PhonePe, Paytm) to complete your subscription.
                 </p>
               </div>
@@ -1607,7 +1828,8 @@ function PricingView() {
               <div className="grid grid-cols-2 gap-4">
                 <button 
                   onClick={() => {
-                    const upiUrl = `upi://pay?pa=${upiId}&pn=GeM%20Bid%20Analyzer&am=${selectedPlan.price}&cu=INR&tn=Subscription%20for%20${selectedPlan.name}`;
+                    setHasInitiatedPayment(true);
+                    const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiName)}&am=${selectedPlan.price}&cu=INR&tn=Subscription%20for%20${selectedPlan.name}`;
                     window.location.href = upiUrl;
                   }}
                   className="flex items-center justify-center gap-2 rounded-xl bg-sea-green py-3 text-sm font-bold text-white shadow-lg hover:bg-sea-green-dark"
@@ -1615,11 +1837,27 @@ function PricingView() {
                   Pay via App
                 </button>
                 <button 
-                  onClick={() => setSelectedPlan(null)}
+                  onClick={() => {
+                    setSelectedPlan(null);
+                    setHasInitiatedPayment(false);
+                  }}
                   className="rounded-xl bg-sea-green-light py-3 text-sm font-bold text-sea-green hover:bg-sea-green/20"
                 >
                   Cancel
                 </button>
+                {hasInitiatedPayment && (
+                  <button 
+                    onClick={() => {
+                      onUpdateUser({ ...user!, plan: selectedPlan.name });
+                      setSelectedPlan(null);
+                      setHasInitiatedPayment(false);
+                      alert(`Successfully subscribed to ${selectedPlan.name}!`);
+                    }}
+                    className="col-span-2 mt-2 flex items-center justify-center gap-2 rounded-xl bg-slate-900 py-3 text-sm font-bold text-white shadow-lg hover:bg-slate-800"
+                  >
+                    I have paid (Confirm)
+                  </button>
+                )}
               </div>
             </div>
           </div>
