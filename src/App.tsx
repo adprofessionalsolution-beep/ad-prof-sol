@@ -35,7 +35,8 @@ import {
   ChevronDown,
   FileCheck,
   Bell,
-  MessageCircle
+  MessageCircle,
+  LogOut
 } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 // @ts-ignore
@@ -54,6 +55,7 @@ interface UserData {
   name: string;
   email: string;
   whatsapp: string;
+  password?: string;
   isAdmin?: boolean;
 }
 
@@ -98,6 +100,13 @@ export default function App() {
     localStorage.setItem('ad_pro_user', JSON.stringify(data));
     setUser(data);
     setShowSignup(false);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('ad_pro_user');
+    setUser(null);
+    setShowSignup(true);
+    setIsMenuOpen(false);
   };
 
   const addTenderUpdate = (update: Omit<TenderUpdate, 'id' | 'date'>) => {
@@ -212,6 +221,13 @@ export default function App() {
                   <p className="text-xs font-bold text-slate-900">{user.name}</p>
                   <p className="text-[10px] text-slate-400">{user.email}</p>
                 </div>
+                <button 
+                  onClick={handleLogout}
+                  className="ml-2 flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-500 transition-colors"
+                  title="Logout"
+                >
+                  <LogOut size={16} />
+                </button>
               </div>
             )}
           </div>
@@ -249,15 +265,24 @@ export default function App() {
                 <button onClick={() => { setActiveTab('pricing'); setIsMenuOpen(false); }} className="mt-2 rounded-xl bg-sea-green py-4 text-center font-black uppercase tracking-widest text-white shadow-lg">Get Started</button>
                 
                 {user && (
-                  <div className="mt-4 flex items-center gap-4 rounded-2xl bg-sea-green-light p-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sea-green text-white font-bold text-xl">
-                      {user.name.charAt(0).toUpperCase()}
+                  <div className="mt-4 flex items-center justify-between rounded-2xl bg-sea-green-light p-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sea-green text-white font-bold text-xl">
+                        {user.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-900">{user.name}</p>
+                        <p className="text-xs text-slate-500">{user.email}</p>
+                        <p className="text-[10px] text-sea-green font-medium mt-1">{user.whatsapp}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-bold text-slate-900">{user.name}</p>
-                      <p className="text-xs text-slate-500">{user.email}</p>
-                      <p className="text-[10px] text-sea-green font-medium mt-1">{user.whatsapp}</p>
-                    </div>
+                    <button 
+                      onClick={handleLogout}
+                      className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-red-500 shadow-sm hover:bg-red-50 transition-colors"
+                      title="Logout"
+                    >
+                      <LogOut size={20} />
+                    </button>
                   </div>
                 )}
               </div>
@@ -306,9 +331,9 @@ export default function App() {
             <div>
               <h4 className="font-bold">Contact</h4>
               <ul className="mt-4 space-y-2 text-sm text-slate-500">
-                <li>Email: info@adprofessionals.com</li>
-                <li>Phone: +91 98765 43210</li>
-                <li>Address: New Delhi, India</li>
+                <li>Email: adprofessionalsolution@gmail.com</li>
+                <li>Phone: +91 8777561824</li>
+                <li>Address: North 24 Parganas, West Bengal, India, 743145</li>
               </ul>
             </div>
           </div>
@@ -506,24 +531,57 @@ function HomeView({ onServiceClick }: { onServiceClick: (tab: Tab) => void }) {
 
 function SignupModal({ onSignup }: { onSignup: (data: UserData) => void }) {
   const [isAdminMode, setIsAdminMode] = useState(false);
+  const [isLoginMode, setIsLoginMode] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<UserData>({
     name: '',
     email: '',
     whatsapp: '',
+    password: '',
     isAdmin: false
   });
   const [adminKey, setAdminKey] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isAdminMode) {
-      if (adminKey === 'admin123') { // Simple hardcoded key for demo
+      if (formData.email === 'adprofessionalsolution@gmail.com' && adminKey === 'Memsaheb@93') {
         onSignup({ ...formData, name: 'Admin User', isAdmin: true });
       } else {
-        alert('Invalid Admin Key');
+        alert('Invalid Admin Credentials');
+      }
+    } else if (isLoginMode) {
+      const users = JSON.parse(localStorage.getItem('ad_pro_users') || '[]');
+      const user = users.find((u: UserData) => u.email === formData.email && u.password === formData.password);
+      if (user) {
+        onSignup(user);
+      } else {
+        alert('Invalid email or password');
       }
     } else {
-      if (formData.name && formData.email && formData.whatsapp) {
+      if (formData.name && formData.email && formData.whatsapp && formData.password) {
+        setIsLoading(true);
+        try {
+          await fetch('/api/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+          });
+        } catch (err) {
+          console.error('Error sending signup email', err);
+        } finally {
+          setIsLoading(false);
+        }
+        
+        const users = JSON.parse(localStorage.getItem('ad_pro_users') || '[]');
+        // Prevent duplicate emails
+        if (users.some((u: UserData) => u.email === formData.email)) {
+          alert('User with this email already exists. Please login.');
+          return;
+        }
+        users.push(formData);
+        localStorage.setItem('ad_pro_users', JSON.stringify(users));
+        
         onSignup(formData);
       }
     }
@@ -545,24 +603,30 @@ function SignupModal({ onSignup }: { onSignup: (data: UserData) => void }) {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md">
             {isAdminMode ? <ShieldCheck size={32} /> : <Users size={32} />}
           </div>
-          <h2 className="text-2xl font-black tracking-tight">{isAdminMode ? 'Admin Portal' : 'Welcome to A D Pro'}</h2>
-          <p className="mt-2 text-sea-green-light/80">{isAdminMode ? 'Enter your credentials to manage tenders' : 'Please sign up to access all professional tools'}</p>
+          <h2 className="text-2xl font-black tracking-tight">
+            {isAdminMode ? 'Admin Portal' : isLoginMode ? 'Welcome Back' : 'Welcome to A D Pro'}
+          </h2>
+          <p className="mt-2 text-sea-green-light/80">
+            {isAdminMode ? 'Enter your credentials to manage tenders' : isLoginMode ? 'Please login to continue' : 'Please sign up to access all professional tools'}
+          </p>
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-6 p-8">
           {!isAdminMode ? (
             <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">Full Name</label>
-                <input 
-                  type="text" 
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="John Doe"
-                  className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
-                />
-              </div>
+              {!isLoginMode && (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">Full Name</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="John Doe"
+                    className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+                  />
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">Email Address</label>
                 <input 
@@ -574,14 +638,27 @@ function SignupModal({ onSignup }: { onSignup: (data: UserData) => void }) {
                   className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
                 />
               </div>
+              {!isLoginMode && (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">WhatsApp Number</label>
+                  <input 
+                    type="tel" 
+                    required
+                    value={formData.whatsapp}
+                    onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                    placeholder="+91 98765 43210"
+                    className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+                  />
+                </div>
+              )}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">WhatsApp Number</label>
+                <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">Password</label>
                 <input 
-                  type="tel" 
+                  type="password" 
                   required
-                  value={formData.whatsapp}
-                  onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                  placeholder="+91 98765 43210"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="••••••••"
                   className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
                 />
               </div>
@@ -595,12 +672,12 @@ function SignupModal({ onSignup }: { onSignup: (data: UserData) => void }) {
                   required
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="admin@adpro.com"
+                  placeholder="adprofessionalsolution@gmail.com"
                   className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-slate-800 focus:ring-slate-800"
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">Admin Access Key</label>
+                <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">Admin Password</label>
                 <input 
                   type="password" 
                   required
@@ -615,22 +692,36 @@ function SignupModal({ onSignup }: { onSignup: (data: UserData) => void }) {
 
           <button 
             type="submit"
+            disabled={isLoading}
             className={cn(
               "flex w-full items-center justify-center gap-2 rounded-xl py-4 font-bold text-white shadow-lg transition-all active:scale-95",
-              isAdminMode ? "bg-slate-800 hover:bg-slate-900" : "bg-sea-green hover:bg-sea-green-dark"
+              isAdminMode ? "bg-slate-800 hover:bg-slate-900" : "bg-sea-green hover:bg-sea-green-dark",
+              isLoading ? "opacity-70 cursor-not-allowed" : ""
             )}
           >
-            {isAdminMode ? 'Login as Admin' : 'Get Started'}
-            <ChevronRight size={20} />
+            {isLoading ? 'Processing...' : isAdminMode ? 'Login as Admin' : isLoginMode ? 'Login' : 'Get Started'}
+            {!isLoading && <ChevronRight size={20} />}
           </button>
           
-          <div className="text-center">
+          <div className="flex flex-col items-center gap-3">
+            {!isAdminMode && (
+              <button 
+                type="button"
+                onClick={() => setIsLoginMode(!isLoginMode)}
+                className="text-xs font-bold text-sea-green hover:text-sea-green-dark"
+              >
+                {isLoginMode ? "Don't have an account? Sign Up" : "Already have an account? Login"}
+              </button>
+            )}
             <button 
               type="button"
-              onClick={() => setIsAdminMode(!isAdminMode)}
-              className="text-xs font-bold text-slate-400 hover:text-sea-green"
+              onClick={() => {
+                setIsAdminMode(!isAdminMode);
+                setIsLoginMode(false);
+              }}
+              className="text-xs font-bold text-slate-400 hover:text-slate-600"
             >
-              {isAdminMode ? 'Back to User Signup' : 'Admin Login'}
+              {isAdminMode ? 'Back to User Portal' : 'Admin Login'}
             </button>
           </div>
         </form>
