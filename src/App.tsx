@@ -37,7 +37,9 @@ import {
   Bell,
   MessageCircle,
   LogOut,
-  Lock
+  Lock,
+  CheckCircle,
+  Send
 } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 // @ts-ignore
@@ -184,6 +186,7 @@ export default function App() {
   const [isBidDocsOpen, setIsBidDocsOpen] = useState(false);
   const [user, setUser] = useState<UserData | null>(null);
   const [showSignup, setShowSignup] = useState(false);
+  const [showContact, setShowContact] = useState(false);
   const [tenderUpdates, setTenderUpdates] = useState<TenderUpdate[]>([]);
 
   useEffect(() => {
@@ -350,6 +353,12 @@ export default function App() {
             >
               Pricing
             </button>
+            <button 
+              onClick={() => setShowContact(true)}
+              className="text-sm font-bold uppercase tracking-wider text-slate-600 transition-colors hover:text-sea-green"
+            >
+              Contact Us
+            </button>
             {user?.isAdmin && (
               <button 
                 onClick={() => handleTabClick('admin')}
@@ -432,6 +441,12 @@ export default function App() {
                   </AnimatePresence>
                 </div>
                 <button onClick={() => { handleTabClick('pricing'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Pricing</button>
+                <button 
+                  onClick={() => { setShowContact(true); setIsMenuOpen(false); }} 
+                  className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light"
+                >
+                  Contact Us
+                </button>
                 {user?.isAdmin && (
                   <button onClick={() => { handleTabClick('admin'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Admin</button>
                 )}
@@ -552,7 +567,6 @@ export default function App() {
               <h4 className="font-bold">Contact</h4>
               <ul className="mt-4 space-y-2 text-sm text-slate-500">
                 <li>Email: adprofessionalsolution@gmail.com</li>
-                <li>Phone: +91 8777561824</li>
                 <li>Address: North 24 Parganas, West Bengal, India, 743145</li>
               </ul>
             </div>
@@ -745,6 +759,137 @@ function HomeView({ onServiceClick }: { onServiceClick: (tab: Tab) => void }) {
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+function ContactModal({ onClose }: { onClose: () => void }) {
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    mobile: '',
+    description: ''
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      
+      if (response.ok) {
+        setIsSuccess(true);
+        setTimeout(() => {
+          onClose();
+        }, 2000);
+      } else {
+        alert('Failed to send inquiry. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('An error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isSuccess) {
+    return (
+      <div className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
+        <div className="bg-sea-green p-8 text-center text-white">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/20">
+            <CheckCircle size={32} />
+          </div>
+          <h2 className="text-2xl font-black tracking-tight">Message Sent!</h2>
+          <p className="mt-2 text-sea-green-light">We will get back to you shortly.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
+      <div className="relative bg-sea-green p-8 text-center text-white">
+        <button 
+          onClick={onClose}
+          className="absolute right-4 top-4 text-white/80 hover:text-white"
+        >
+          <X size={24} />
+        </button>
+        <h2 className="text-2xl font-black tracking-tight">Contact Us</h2>
+        <p className="mt-2 text-sea-green-light">Send us a message and we'll reply to your email.</p>
+      </div>
+
+      <div className="p-8">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label className="block text-sm font-bold text-slate-700">Name</label>
+            <input 
+              type="text" 
+              required
+              value={formData.name}
+              onChange={(e) => setFormData({...formData, name: e.target.value})}
+              className="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+              placeholder="Your full name"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-bold text-slate-700">Email ID</label>
+            <input 
+              type="email" 
+              required
+              value={formData.email}
+              onChange={(e) => setFormData({...formData, email: e.target.value})}
+              className="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+              placeholder="you@example.com"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-slate-700">Mobile Number</label>
+            <input 
+              type="tel" 
+              required
+              value={formData.mobile}
+              onChange={(e) => setFormData({...formData, mobile: e.target.value})}
+              className="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+              placeholder="Your mobile number"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-slate-700">Description</label>
+            <textarea 
+              required
+              rows={4}
+              value={formData.description}
+              onChange={(e) => setFormData({...formData, description: e.target.value})}
+              className="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+              placeholder="How can we help you?"
+            />
+          </div>
+
+          <button 
+            type="submit" 
+            disabled={isLoading}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-sea-green py-4 text-sm font-black uppercase tracking-widest text-white shadow-lg transition-all hover:bg-sea-green-dark disabled:opacity-70"
+          >
+            {isLoading ? (
+              <Loader2 className="animate-spin" size={20} />
+            ) : (
+              <Send size={20} />
+            )}
+            {isLoading ? 'Sending...' : 'Submit'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

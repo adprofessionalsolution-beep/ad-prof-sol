@@ -89,6 +89,55 @@ async function startServer() {
     }
   });
 
+  app.post("/api/contact", async (req, res) => {
+    try {
+      const { name, email, mobile, description } = req.body;
+
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || "smtp.ethereal.email",
+        port: Number(process.env.SMTP_PORT) || 587,
+        auth: {
+          user: process.env.SMTP_USER || "test",
+          pass: process.env.SMTP_PASS || "test",
+        },
+      });
+
+      if (!process.env.SMTP_USER) {
+        const testAccount = await nodemailer.createTestAccount();
+        Object.assign(transporter.options, {
+          auth: {
+            user: testAccount.user,
+            pass: testAccount.pass,
+          }
+        });
+      }
+
+      const info = await transporter.sendMail({
+        from: `"A D Professional Solution" <${process.env.SMTP_USER || "noreply@adprofessionals.com"}>`,
+        to: "adprofessionalsolution@gmail.com",
+        subject: "New Contact Us Inquiry - A D Professional Solution",
+        text: `A new inquiry has been submitted!\n\nName: ${name}\nEmail: ${email}\nMobile: ${mobile}\nDescription: ${description}`,
+        html: `
+          <h3>New Contact Us Inquiry</h3>
+          <p><strong>Name:</strong> ${name}</p>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Mobile:</strong> ${mobile}</p>
+          <p><strong>Description:</strong> ${description}</p>
+        `,
+      });
+
+      console.log("Message sent: %s", info.messageId);
+      if (!process.env.SMTP_USER) {
+        console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
+      }
+
+      res.json({ success: true, message: "Inquiry sent successfully." });
+    } catch (error) {
+      console.error("Error sending email:", error);
+      res.status(500).json({ success: false, error: "Failed to send inquiry." });
+    }
+  });
+
   // Admin API routes
   app.get("/api/admin/clients", (req, res) => {
     res.json({ success: true, clients });
