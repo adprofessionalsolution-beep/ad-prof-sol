@@ -190,8 +190,6 @@ export default function App() {
     const savedUser = localStorage.getItem('ad_pro_user');
     if (savedUser) {
       setUser(JSON.parse(savedUser));
-    } else {
-      setShowSignup(true);
     }
 
     const savedUpdates = localStorage.getItem('ad_pro_tender_updates');
@@ -207,6 +205,14 @@ export default function App() {
       localStorage.setItem('ad_pro_tender_updates', JSON.stringify(initialUpdates));
     }
   }, []);
+
+  const handleTabClick = (tab: Tab) => {
+    if (!user && tab !== 'home' && tab !== 'pricing') {
+      setShowSignup(true);
+    } else {
+      setActiveTab(tab);
+    }
+  };
 
   const handleSignup = (data: UserData) => {
     localStorage.setItem('ad_pro_user', JSON.stringify(data));
@@ -263,7 +269,7 @@ export default function App() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <div 
             className="flex cursor-pointer items-center gap-3"
-            onClick={() => setActiveTab('home')}
+            onClick={() => handleTabClick('home')}
           >
             <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-sea-green text-white shadow-lg">
               {/* Pyramid A Logo */}
@@ -280,19 +286,19 @@ export default function App() {
           {/* Desktop Nav */}
           <div className="hidden items-center gap-8 md:flex">
             <button 
-              onClick={() => setActiveTab('home')}
+              onClick={() => handleTabClick('home')}
               className={cn("text-sm font-bold uppercase tracking-wider transition-colors hover:text-sea-green", activeTab === 'home' ? "text-sea-green" : "text-slate-600")}
             >
               Home
             </button>
             <button 
-              onClick={() => setActiveTab('analyzer')}
+              onClick={() => handleTabClick('analyzer')}
               className={cn("text-sm font-bold uppercase tracking-wider transition-colors hover:text-sea-green", activeTab === 'analyzer' ? "text-sea-green" : "text-slate-600")}
             >
               AI Bid Analyzer
             </button>
             <button 
-              onClick={() => setActiveTab('tender-update')}
+              onClick={() => handleTabClick('tender-update')}
               className={cn("text-sm font-bold uppercase tracking-wider transition-colors hover:text-sea-green", activeTab === 'tender-update' ? "text-sea-green" : "text-slate-600")}
             >
               Tender Update
@@ -316,19 +322,19 @@ export default function App() {
                     className="flex flex-col gap-1.5 overflow-hidden"
                   >
                     <button 
-                      onClick={() => setActiveTab('certificate')}
+                      onClick={() => handleTabClick('certificate')}
                       className={cn("text-[11px] font-bold uppercase tracking-wider transition-colors hover:text-sea-green text-left", activeTab === 'certificate' ? "text-sea-green" : "text-slate-600")}
                     >
                       MII Certificate
                     </button>
                     <button 
-                      onClick={() => setActiveTab('escalation')}
+                      onClick={() => handleTabClick('escalation')}
                       className={cn("text-[11px] font-bold uppercase tracking-wider transition-colors hover:text-sea-green text-left", activeTab === 'escalation' ? "text-sea-green" : "text-slate-600")}
                     >
                       Escalation Matrix
                     </button>
                     <button 
-                      onClick={() => setActiveTab('bankruptcy')}
+                      onClick={() => handleTabClick('bankruptcy')}
                       className={cn("text-[11px] font-bold uppercase tracking-wider transition-colors hover:text-sea-green text-left", activeTab === 'bankruptcy' ? "text-sea-green" : "text-slate-600")}
                     >
                       Non-bankruptcy
@@ -339,21 +345,21 @@ export default function App() {
             </div>
 
             <button 
-              onClick={() => setActiveTab('pricing')}
+              onClick={() => handleTabClick('pricing')}
               className={cn("text-sm font-bold uppercase tracking-wider transition-colors hover:text-sea-green", activeTab === 'pricing' ? "text-sea-green" : "text-slate-600")}
             >
               Pricing
             </button>
             {user?.isAdmin && (
               <button 
-                onClick={() => setActiveTab('admin')}
+                onClick={() => handleTabClick('admin')}
                 className={cn("text-sm font-bold uppercase tracking-wider transition-colors hover:text-sea-green", activeTab === 'admin' ? "text-sea-green" : "text-slate-600")}
               >
                 Admin
               </button>
             )}
             <button 
-              onClick={() => setActiveTab('pricing')}
+              onClick={() => handleTabClick('pricing')}
               className="rounded-xl bg-sea-green px-6 py-2.5 text-sm font-black uppercase tracking-widest text-white shadow-lg transition-all hover:bg-opacity-90 hover:shadow-sea-green/20 active:scale-95"
             >
               Get Started
@@ -398,9 +404,9 @@ export default function App() {
               className="border-t border-slate-100 bg-white md:hidden"
             >
               <div className="flex flex-col gap-2 p-4">
-                <button onClick={() => { setActiveTab('home'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Home</button>
-                <button onClick={() => { setActiveTab('analyzer'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">AI Bid Analyzer</button>
-                <button onClick={() => { setActiveTab('tender-update'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Tender Update</button>
+                <button onClick={() => { handleTabClick('home'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Home</button>
+                <button onClick={() => { handleTabClick('analyzer'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">AI Bid Analyzer</button>
+                <button onClick={() => { handleTabClick('tender-update'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Tender Update</button>
                 
                 <div className="border-y border-sea-green-light py-2">
                   <button 
@@ -418,18 +424,18 @@ export default function App() {
                         exit={{ height: 0, opacity: 0 }}
                         className="overflow-hidden"
                       >
-                        <button onClick={() => { setActiveTab('certificate'); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-3 text-left font-bold text-slate-600 hover:bg-sea-green-light"><FileCheck size={18} /> MII Certificate</button>
-                        <button onClick={() => { setActiveTab('escalation'); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-3 text-left font-bold text-slate-600 hover:bg-sea-green-light"><Users size={18} /> Escalation Matrix</button>
-                        <button onClick={() => { setActiveTab('bankruptcy'); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-3 text-left font-bold text-slate-600 hover:bg-sea-green-light"><Scale size={18} /> Non-bankruptcy</button>
+                        <button onClick={() => { handleTabClick('certificate'); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-3 text-left font-bold text-slate-600 hover:bg-sea-green-light"><FileCheck size={18} /> MII Certificate</button>
+                        <button onClick={() => { handleTabClick('escalation'); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-3 text-left font-bold text-slate-600 hover:bg-sea-green-light"><Users size={18} /> Escalation Matrix</button>
+                        <button onClick={() => { handleTabClick('bankruptcy'); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-3 text-left font-bold text-slate-600 hover:bg-sea-green-light"><Scale size={18} /> Non-bankruptcy</button>
                       </motion.div>
                     )}
                   </AnimatePresence>
                 </div>
-                <button onClick={() => { setActiveTab('pricing'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Pricing</button>
+                <button onClick={() => { handleTabClick('pricing'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Pricing</button>
                 {user?.isAdmin && (
-                  <button onClick={() => { setActiveTab('admin'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Admin</button>
+                  <button onClick={() => { handleTabClick('admin'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Admin</button>
                 )}
-                <button onClick={() => { setActiveTab('pricing'); setIsMenuOpen(false); }} className="mt-2 rounded-xl bg-sea-green py-4 text-center font-black uppercase tracking-widest text-white shadow-lg">Get Started</button>
+                <button onClick={() => { handleTabClick('pricing'); setIsMenuOpen(false); }} className="mt-2 rounded-xl bg-sea-green py-4 text-center font-black uppercase tracking-widest text-white shadow-lg">Get Started</button>
                 
                 {user && (
                   <div className="mt-4 flex items-center justify-between rounded-2xl bg-sea-green-light p-4">
@@ -459,7 +465,7 @@ export default function App() {
       </nav>
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        {activeTab === 'home' && <HomeView onServiceClick={(tab) => setActiveTab(tab)} />}
+        {activeTab === 'home' && <HomeView onServiceClick={(tab) => handleTabClick(tab)} />}
         {activeTab === 'analyzer' && (
           user?.isAdmin || user?.plan === 'Pro Monthly' || user?.plan === 'Yearly Plan' ? (
             <AnalyzerView />
@@ -468,7 +474,7 @@ export default function App() {
               <Lock size={48} className="mb-4 text-slate-300" />
               <h2 className="text-2xl font-bold text-slate-900">Premium Feature</h2>
               <p className="mt-2 text-slate-500">Upgrade to Pro or Yearly plan to access AI Bid Analyzer.</p>
-              <button onClick={() => setActiveTab('pricing')} className="mt-6 rounded-xl bg-sea-green px-6 py-3 font-bold text-white shadow-lg hover:bg-sea-green-dark">View Plans</button>
+              <button onClick={() => handleTabClick('pricing')} className="mt-6 rounded-xl bg-sea-green px-6 py-3 font-bold text-white shadow-lg hover:bg-sea-green-dark">View Plans</button>
             </div>
           )
         )}
@@ -483,7 +489,7 @@ export default function App() {
               <Lock size={48} className="mb-4 text-slate-300" />
               <h2 className="text-2xl font-bold text-slate-900">Premium Feature</h2>
               <p className="mt-2 text-slate-500">Upgrade to Pro or Yearly plan to access MII Certificate Generator.</p>
-              <button onClick={() => setActiveTab('pricing')} className="mt-6 rounded-xl bg-sea-green px-6 py-3 font-bold text-white shadow-lg hover:bg-sea-green-dark">View Plans</button>
+              <button onClick={() => handleTabClick('pricing')} className="mt-6 rounded-xl bg-sea-green px-6 py-3 font-bold text-white shadow-lg hover:bg-sea-green-dark">View Plans</button>
             </div>
           )
         )}
@@ -495,7 +501,7 @@ export default function App() {
               <Lock size={48} className="mb-4 text-slate-300" />
               <h2 className="text-2xl font-bold text-slate-900">Premium Feature</h2>
               <p className="mt-2 text-slate-500">Upgrade to Pro or Yearly plan to access Escalation Matrix.</p>
-              <button onClick={() => setActiveTab('pricing')} className="mt-6 rounded-xl bg-sea-green px-6 py-3 font-bold text-white shadow-lg hover:bg-sea-green-dark">View Plans</button>
+              <button onClick={() => handleTabClick('pricing')} className="mt-6 rounded-xl bg-sea-green px-6 py-3 font-bold text-white shadow-lg hover:bg-sea-green-dark">View Plans</button>
             </div>
           )
         )}
@@ -507,7 +513,7 @@ export default function App() {
               <Lock size={48} className="mb-4 text-slate-300" />
               <h2 className="text-2xl font-bold text-slate-900">Premium Feature</h2>
               <p className="mt-2 text-slate-500">Upgrade to Pro or Yearly plan to access Non-bankruptcy Certificate.</p>
-              <button onClick={() => setActiveTab('pricing')} className="mt-6 rounded-xl bg-sea-green px-6 py-3 font-bold text-white shadow-lg hover:bg-sea-green-dark">View Plans</button>
+              <button onClick={() => handleTabClick('pricing')} className="mt-6 rounded-xl bg-sea-green px-6 py-3 font-bold text-white shadow-lg hover:bg-sea-green-dark">View Plans</button>
             </div>
           )
         )}
@@ -1447,6 +1453,7 @@ function CertificateView() {
     localContent: '50',
     location: '',
     letterhead: null as string | null,
+    signature: null as string | null,
   });
   const [isPreview, setIsPreview] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -1562,10 +1569,22 @@ function CertificateView() {
               </p>
             </div>
 
-            <div className="pt-12">
-              <p className="font-bold">
-                For : <span className="border-b border-slate-900 px-4">{formData.companyName || "_____________________"}</span>
-              </p>
+            <div className="pt-12 flex justify-between items-end">
+              <div>
+                <p className="font-bold">
+                  For : <span className="border-b border-slate-900 px-4">{formData.companyName || "_____________________"}</span>
+                </p>
+              </div>
+              <div className="text-center space-y-2">
+                {formData.signature ? (
+                  <img src={formData.signature} alt="Signature" className="h-16 object-contain mx-auto" />
+                ) : (
+                  <div className="h-16 w-40 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400 text-xs rounded-lg bg-slate-50 mx-auto">
+                    Digital Signature Space
+                  </div>
+                )}
+                <p className="font-bold text-sm">Authorized Signatory</p>
+              </div>
             </div>
           </div>
         </div>
@@ -1637,6 +1656,40 @@ function CertificateView() {
               placeholder="e.g. GEM/2026/B/1234567"
               className="mt-1 block w-full rounded-lg border border-slate-200 px-4 py-3 focus:border-sea-green focus:ring-sea-green"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700">Signature Image (Optional)</label>
+            <div className="mt-1 flex items-center gap-4">
+              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100">
+                <Upload size={16} />
+                Upload Signature
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setFormData({...formData, signature: reader.result as string});
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+              </label>
+              {formData.signature && (
+                <button 
+                  type="button"
+                  onClick={() => setFormData({...formData, signature: null})}
+                  className="text-xs font-bold text-red-500 hover:underline"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+            <p className="mt-1 text-[10px] text-slate-400 italic">Upload an image of the authorized signature.</p>
           </div>
           <div className="grid gap-6 sm:grid-cols-2">
             <div>
@@ -1882,6 +1935,7 @@ function EscalationView() {
   ]);
   const [companyName, setCompanyName] = useState('');
   const [letterhead, setLetterhead] = useState<string | null>(null);
+  const [signature, setSignature] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const matrixRef = useRef<HTMLDivElement>(null);
 
@@ -1987,6 +2041,40 @@ function EscalationView() {
                 )}
               </div>
               <p className="mt-1 text-[10px] text-slate-400 italic">Upload your company letterhead to appear at the top of the matrix.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700">Signature Image (Optional)</label>
+              <div className="mt-1 flex items-center gap-4">
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100">
+                  <Upload size={16} />
+                  Upload Signature
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setSignature(reader.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
+                {signature && (
+                  <button 
+                    type="button"
+                    onClick={() => setSignature(null)}
+                    className="text-xs font-bold text-red-500 hover:underline"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              <p className="mt-1 text-[10px] text-slate-400 italic">Upload an image of the authorized signature.</p>
             </div>
           </div>
         </div>
@@ -2142,13 +2230,20 @@ function EscalationView() {
               </table>
             </div>
 
-            <div className="mt-20 flex justify-between pt-12">
-              <div className="text-center">
-                <div className="mb-2 h-px w-40 bg-slate-300"></div>
+            <div className="mt-20 flex justify-between items-end pt-12">
+              <div className="text-center space-y-2">
+                {signature ? (
+                  <img src={signature} alt="Signature" className="h-16 object-contain mx-auto" />
+                ) : (
+                  <div className="h-16 w-40 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400 text-xs rounded-lg bg-slate-50 mx-auto">
+                    Digital Signature Space
+                  </div>
+                )}
+                <div className="mb-2 h-px w-40 bg-slate-300 mx-auto"></div>
                 <p className="text-xs font-bold uppercase text-slate-400">Authorized Signatory</p>
               </div>
               <div className="text-center">
-                <div className="mb-2 h-px w-40 bg-slate-300"></div>
+                <div className="mb-2 h-px w-40 bg-slate-300 mx-auto"></div>
                 <p className="text-xs font-bold uppercase text-slate-400">Company Seal</p>
               </div>
             </div>
@@ -2167,6 +2262,7 @@ function NonBankruptcyView() {
     officeAddress: '',
     bidNumber: '',
     letterhead: null as string | null,
+    signature: null as string | null,
   });
   const [isExporting, setIsExporting] = useState(false);
   const documentRef = useRef<HTMLDivElement>(null);
@@ -2254,6 +2350,40 @@ function NonBankruptcyView() {
                 )}
               </div>
               <p className="mt-1 text-[10px] text-slate-400 italic">Upload your company letterhead to appear at the top of the undertaking.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700">Signature Image (Optional)</label>
+              <div className="mt-1 flex items-center gap-4">
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100">
+                  <Upload size={16} />
+                  Upload Signature
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setFormData({...formData, signature: reader.result as string});
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
+                {formData.signature && (
+                  <button 
+                    type="button"
+                    onClick={() => setFormData({...formData, signature: null})}
+                    className="text-xs font-bold text-red-500 hover:underline"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              <p className="mt-1 text-[10px] text-slate-400 italic">Upload an image of the authorized signature.</p>
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-700">Designation</label>
@@ -2346,8 +2476,15 @@ function NonBankruptcyView() {
               </div>
 
               <div className="mt-24 flex flex-col items-end space-y-2 pt-12">
-                <div className="text-center">
-                  <div className="mb-2 h-px w-48 bg-slate-400"></div>
+                <div className="text-center space-y-2">
+                  {formData.signature ? (
+                    <img src={formData.signature} alt="Signature" className="h-16 object-contain mx-auto" />
+                  ) : (
+                    <div className="h-16 w-48 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400 text-xs rounded-lg bg-slate-50 mx-auto">
+                      Digital Signature Space
+                    </div>
+                  )}
+                  <div className="mb-2 h-px w-48 bg-slate-400 mx-auto"></div>
                   <p className="text-xs font-bold uppercase text-slate-500">Authorized Signatory</p>
                   <p className="text-[10px] text-slate-400 mt-1">(With Company Seal)</p>
                 </div>

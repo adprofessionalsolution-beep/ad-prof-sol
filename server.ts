@@ -55,10 +55,12 @@ async function startServer() {
       // If using ethereal test account, we need to generate one if not provided
       if (!process.env.SMTP_USER) {
         const testAccount = await nodemailer.createTestAccount();
-        transporter.options.auth = {
-          user: testAccount.user,
-          pass: testAccount.pass,
-        };
+        Object.assign(transporter.options, {
+          auth: {
+            user: testAccount.user,
+            pass: testAccount.pass,
+          }
+        });
       }
 
       const info = await transporter.sendMail({
