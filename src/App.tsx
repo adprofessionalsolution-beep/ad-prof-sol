@@ -72,6 +72,7 @@ interface TenderUpdate {
   category: string;
   date: string;
   description: string;
+  documentLink?: string;
 }
 
 function AdminDashboard() {
@@ -1128,7 +1129,7 @@ function TenderUpdateView({ user, updates, onAddUpdate }: { user: UserData | nul
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showAdminForm, setShowAdminForm] = useState(false);
-  const [newUpdate, setNewUpdate] = useState({ title: '', category: 'Goods', description: '' });
+  const [newUpdate, setNewUpdate] = useState({ title: '', category: 'Goods', description: '', documentLink: '' });
 
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1143,7 +1144,7 @@ function TenderUpdateView({ user, updates, onAddUpdate }: { user: UserData | nul
     e.preventDefault();
     if (newUpdate.title && newUpdate.description) {
       onAddUpdate(newUpdate);
-      setNewUpdate({ title: '', category: 'Goods', description: '' });
+      setNewUpdate({ title: '', category: 'Goods', description: '', documentLink: '' });
       setShowAdminForm(false);
     }
   };
@@ -1192,13 +1193,13 @@ function TenderUpdateView({ user, updates, onAddUpdate }: { user: UserData | nul
             <form onSubmit={handleAdminSubmit} className="grid gap-6 md:grid-cols-2">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-bold text-slate-700">Tender Title</label>
+                  <label className="block text-sm font-bold text-slate-700">Bid ID & Date</label>
                   <input 
                     type="text" 
                     required
                     value={newUpdate.title}
                     onChange={(e) => setNewUpdate({ ...newUpdate, title: e.target.value })}
-                    placeholder="e.g., Highway Construction - NH1"
+                    placeholder="e.g., GEM/2026/B/1234567 - 30 Mar 2026"
                     className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
                   />
                 </div>
@@ -1213,6 +1214,16 @@ function TenderUpdateView({ user, updates, onAddUpdate }: { user: UserData | nul
                     <option value="Services">Services</option>
                     <option value="Works">Works</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700">Document Link (Optional)</label>
+                  <input 
+                    type="url" 
+                    value={newUpdate.documentLink}
+                    onChange={(e) => setNewUpdate({ ...newUpdate, documentLink: e.target.value })}
+                    placeholder="https://example.com/tender-doc.pdf"
+                    className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+                  />
                 </div>
               </div>
               <div className="space-y-4">
@@ -1338,6 +1349,17 @@ function TenderUpdateView({ user, updates, onAddUpdate }: { user: UserData | nul
                     <p className="mt-2 text-sm text-slate-500 leading-relaxed">
                       {update.description}
                     </p>
+                    {update.documentLink && (
+                      <a 
+                        href={update.documentLink} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-sea-green hover:underline"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        Download tender document
+                      </a>
+                    )}
                   </div>
                   <button className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-400 transition-all hover:bg-sea-green hover:text-white">
                     <ChevronRight size={20} />
