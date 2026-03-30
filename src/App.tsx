@@ -63,6 +63,7 @@ interface UserData {
   plan?: string;
   status?: 'active' | 'cancelled';
   subscriptionEnd?: string;
+  registrationDate?: string;
 }
 
 interface TenderUpdate {
@@ -81,7 +82,7 @@ function AdminDashboard() {
     setClients(users.filter((u: UserData) => !u.isAdmin));
   }, []);
 
-  const handleStatusChange = (email: string, action: 'cancel' | 'extend', newPlan?: string) => {
+  const handleStatusChange = (email: string, action: 'cancel' | 'extend' | 'changePlan', newPlan?: string) => {
     const allUsers = JSON.parse(localStorage.getItem('ad_pro_users') || '[]');
     const updatedUsers = allUsers.map((u: UserData) => {
       if (u.email === email) {
@@ -89,8 +90,14 @@ function AdminDashboard() {
           return { ...u, status: 'cancelled', plan: 'Free Plan' };
         } else if (action === 'extend') {
           const currentEnd = u.subscriptionEnd ? new Date(u.subscriptionEnd) : new Date();
-          const newEnd = new Date(currentEnd.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
-          return { ...u, status: 'active', subscriptionEnd: newEnd, plan: newPlan || u.plan };
+          const daysToAdd = u.plan === 'Yearly Plan' ? 365 : 30;
+          const newEnd = new Date(currentEnd.getTime() + daysToAdd * 24 * 60 * 60 * 1000).toISOString();
+          return { ...u, status: 'active', subscriptionEnd: newEnd };
+        } else if (action === 'changePlan' && newPlan) {
+          const regDate = u.registrationDate ? new Date(u.registrationDate) : new Date();
+          const daysToAdd = newPlan === 'Yearly Plan' ? 365 : 30;
+          const newEnd = new Date(regDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000).toISOString();
+          return { ...u, status: 'active', plan: newPlan, subscriptionEnd: newEnd };
         }
       }
       return u;
@@ -114,6 +121,7 @@ function AdminDashboard() {
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
                 <th className="px-6 py-4 font-semibold">Client Details</th>
+                <th className="px-6 py-4 font-semibold">Registration Date</th>
                 <th className="px-6 py-4 font-semibold">Plan</th>
                 <th className="px-6 py-4 font-semibold">Status</th>
                 <th className="px-6 py-4 font-semibold">Expires On</th>
@@ -123,7 +131,7 @@ function AdminDashboard() {
             <tbody className="divide-y divide-slate-200">
               {clients.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-slate-500">No clients found.</td>
+                  <td colSpan={6} className="px-6 py-8 text-center text-slate-500">No clients found.</td>
                 </tr>
               ) : clients.map((client) => (
                 <tr key={client.email} className="hover:bg-slate-50">
@@ -131,6 +139,9 @@ function AdminDashboard() {
                     <div className="font-medium text-slate-900">{client.name}</div>
                     <div className="text-xs text-slate-500">{client.email}</div>
                     <div className="text-xs text-slate-500">{client.whatsapp}</div>
+                  </td>
+                  <td className="px-6 py-4 text-slate-600">
+                    {client.registrationDate ? new Date(client.registrationDate).toLocaleDateString() : 'N/A'}
                   </td>
                   <td className="px-6 py-4">
                     <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-blue-600/20 ring-inset">
@@ -149,7 +160,7 @@ function AdminDashboard() {
                     <div className="flex flex-col items-end gap-2 sm:flex-row sm:justify-end">
                       <select 
                         className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-sea-green"
-                        onChange={(e) => handleStatusChange(client.email, 'extend', e.target.value)}
+                        onChange={(e) => handleStatusChange(client.email, 'changePlan', e.target.value)}
                         value={client.plan || 'Free Plan'}
                       >
                         <option value="Free Plan">Free Plan</option>
@@ -157,10 +168,10 @@ function AdminDashboard() {
                         <option value="Yearly Plan">Yearly Plan</option>
                       </select>
                       <button
-                        onClick={() => handleStatusChange(client.email, 'extend', client.plan)}
+                        onClick={() => handleStatusChange(client.email, 'extend')}
                         className="rounded-lg bg-sea-green px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-600"
                       >
-                        Extend 30 Days
+                        Extend Plan
                       </button>
                       <button
                         onClick={() => handleStatusChange(client.email, 'cancel')}
@@ -918,7 +929,8 @@ function SignupModal({ onSignup }: { onSignup: (data: UserData) => void }) {
     isAdmin: false,
     plan: 'Free Plan',
     status: 'active',
-    subscriptionEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    subscriptionEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    registrationDate: new Date().toISOString()
   });
   const [adminKey, setAdminKey] = useState('');
 
@@ -2058,7 +2070,10 @@ function PricingView({ user, onUpdateUser, onLoginRequest }: { user: UserData | 
                 {hasInitiatedPayment && (
                   <button 
                     onClick={() => {
-                      onUpdateUser({ ...user!, plan: selectedPlan.name });
+                      const regDate = user!.registrationDate ? new Date(user!.registrationDate) : new Date();
+                      const daysToAdd = selectedPlan.name === 'Yearly Plan' ? 365 : 30;
+                      const newEnd = new Date(regDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000).toISOString();
+                      onUpdateUser({ ...user!, plan: selectedPlan.name, subscriptionEnd: newEnd });
                       setSelectedPlan(null);
                       setHasInitiatedPayment(false);
                       alert(`Successfully subscribed to ${selectedPlan.name}!`);
