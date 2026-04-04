@@ -41,48 +41,35 @@ async function startServer() {
       };
       clients.push(newClient);
 
-      // Create a test account if no real credentials are provided
-      // In production, you would use real SMTP credentials
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || "smtp.ethereal.email",
-        port: Number(process.env.SMTP_PORT) || 587,
-        auth: {
-          user: process.env.SMTP_USER || "test",
-          pass: process.env.SMTP_PASS || "test",
-        },
-      });
-
-      // If using ethereal test account, we need to generate one if not provided
-      if (!process.env.SMTP_USER) {
-        const testAccount = await nodemailer.createTestAccount();
-        Object.assign(transporter.options, {
+      if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST || "smtp.gmail.com",
+          port: Number(process.env.SMTP_PORT) || 587,
           auth: {
-            user: testAccount.user,
-            pass: testAccount.pass,
-          }
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+          },
         });
+
+        const info = await transporter.sendMail({
+          from: `"A D Professional Solution" <${process.env.SMTP_USER}>`,
+          to: "adprofessionalsolution@gmail.com",
+          subject: "New Client Signup - A D Professional Solution",
+          text: `A new client has signed up!\n\nName: ${name}\nEmail: ${email}\nWhatsApp: ${whatsapp}\nPlan: ${plan || 'Free Plan'}`,
+          html: `
+            <h3>New Client Signup</h3>
+            <p><strong>Name:</strong> ${name}</p>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>WhatsApp:</strong> ${whatsapp}</p>
+            <p><strong>Plan:</strong> ${plan || 'Free Plan'}</p>
+          `,
+        });
+        console.log("Signup email sent: %s", info.messageId);
+      } else {
+        console.log("Mock Signup Email (SMTP not configured):", { name, email, whatsapp, plan });
       }
 
-      const info = await transporter.sendMail({
-        from: `"A D Professional Solution" <${process.env.SMTP_USER || "noreply@adprofessionals.com"}>`,
-        to: "adprofessionalsolution@gmail.com",
-        subject: "New Client Signup - A D Professional Solution",
-        text: `A new client has signed up!\n\nName: ${name}\nEmail: ${email}\nWhatsApp: ${whatsapp}\nPlan: ${plan || 'Free Plan'}`,
-        html: `
-          <h3>New Client Signup</h3>
-          <p><strong>Name:</strong> ${name}</p>
-          <p><strong>Email:</strong> ${email}</p>
-          <p><strong>WhatsApp:</strong> ${whatsapp}</p>
-          <p><strong>Plan:</strong> ${plan || 'Free Plan'}</p>
-        `,
-      });
-
-      console.log("Message sent: %s", info.messageId);
-      if (!process.env.SMTP_USER) {
-        console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
-      }
-
-      res.json({ success: true, message: "Signup successful and email sent to admin." });
+      res.json({ success: true, message: "Signup successful." });
     } catch (error) {
       console.error("Error sending email:", error);
       res.status(500).json({ success: false, error: "Failed to send email notification." });
@@ -93,42 +80,32 @@ async function startServer() {
     try {
       const { name, email, mobile, description } = req.body;
 
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || "smtp.ethereal.email",
-        port: Number(process.env.SMTP_PORT) || 587,
-        auth: {
-          user: process.env.SMTP_USER || "test",
-          pass: process.env.SMTP_PASS || "test",
-        },
-      });
-
-      if (!process.env.SMTP_USER) {
-        const testAccount = await nodemailer.createTestAccount();
-        Object.assign(transporter.options, {
+      if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST || "smtp.gmail.com",
+          port: Number(process.env.SMTP_PORT) || 587,
           auth: {
-            user: testAccount.user,
-            pass: testAccount.pass,
-          }
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+          },
         });
-      }
 
-      const info = await transporter.sendMail({
-        from: `"A D Professional Solution" <${process.env.SMTP_USER || "noreply@adprofessionals.com"}>`,
-        to: "adprofessionalsolution@gmail.com",
-        subject: "New Contact Us Inquiry - A D Professional Solution",
-        text: `A new inquiry has been submitted!\n\nName: ${name}\nEmail: ${email}\nMobile: ${mobile}\nDescription: ${description}`,
-        html: `
-          <h3>New Contact Us Inquiry</h3>
-          <p><strong>Name:</strong> ${name}</p>
-          <p><strong>Email:</strong> ${email}</p>
-          <p><strong>Mobile:</strong> ${mobile}</p>
-          <p><strong>Description:</strong> ${description}</p>
-        `,
-      });
-
-      console.log("Message sent: %s", info.messageId);
-      if (!process.env.SMTP_USER) {
-        console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
+        const info = await transporter.sendMail({
+          from: `"A D Professional Solution" <${process.env.SMTP_USER}>`,
+          to: "adprofessionalsolution@gmail.com",
+          subject: "New Contact Us Inquiry - A D Professional Solution",
+          text: `A new inquiry has been submitted!\n\nName: ${name}\nEmail: ${email}\nMobile: ${mobile}\nDescription: ${description}`,
+          html: `
+            <h3>New Contact Us Inquiry</h3>
+            <p><strong>Name:</strong> ${name}</p>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Mobile:</strong> ${mobile}</p>
+            <p><strong>Description:</strong> ${description}</p>
+          `,
+        });
+        console.log("Contact inquiry email sent: %s", info.messageId);
+      } else {
+        console.log("Mock Contact Inquiry Email (SMTP not configured):", { name, email, mobile, description });
       }
 
       res.json({ success: true, message: "Inquiry sent successfully." });
