@@ -72,7 +72,8 @@ async function startServer() {
       res.json({ success: true, message: "Signup successful." });
     } catch (error) {
       console.error("Error sending email:", error);
-      res.status(500).json({ success: false, error: "Failed to send email notification." });
+      // Return success to the frontend even if email fails, so the user isn't blocked
+      res.json({ success: true, message: "Signup successful, but email notification failed." });
     }
   });
 
@@ -111,7 +112,8 @@ async function startServer() {
       res.json({ success: true, message: "Inquiry sent successfully." });
     } catch (error) {
       console.error("Error sending email:", error);
-      res.status(500).json({ success: false, error: "Failed to send inquiry." });
+      // Return success to the frontend even if email fails, so the user isn't blocked
+      res.json({ success: true, message: "Inquiry recorded, but email notification failed." });
     }
   });
 
