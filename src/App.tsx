@@ -194,6 +194,38 @@ function AdminDashboard() {
   );
 }
 
+function ADPSLogo({ className = "h-8 w-8" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 400 360" className={className} xmlns="http://www.w3.org/2000/svg">
+      <g transform="translate(0, 10)">
+        {/* Left Leg - Left Half (Bright Green) */}
+        <path d="M 200 20 L 60 220 L 95 220 L 200 65 Z" fill="#00cc44" />
+        
+        {/* Left Leg - Right Half (Medium Green) */}
+        <path d="M 200 65 L 95 220 L 130 220 L 200 110 Z" fill="#00a651" />
+        
+        {/* Right Leg - Left Half (Dark Green) */}
+        <path d="M 200 65 L 200 110 L 270 220 L 305 220 Z" fill="#00862d" />
+        
+        {/* Right Leg - Right Half (Darker Green) */}
+        <path d="M 200 20 L 200 65 L 305 220 L 340 220 Z" fill="#006622" />
+
+        {/* Crossbar Top Half (Bright Green) */}
+        <path d="M 174.5 150 L 225.5 150 L 238.2 170 L 161.8 170 Z" fill="#00b33c" />
+        
+        {/* Crossbar Bottom Half (Dark Green) */}
+        <path d="M 161.8 170 L 238.2 170 L 251 190 L 149 190 Z" fill="#007a27" />
+        
+        {/* Inner Shadow (Depth of the hole on the right side) */}
+        <path d="M 200 110 L 200 150 L 225.5 150 Z" fill="#004d1a" />
+      </g>
+      
+      {/* Text */}
+      <text x="200" y="330" fontFamily="Arial, Helvetica, sans-serif" fontSize="100" fontWeight="900" fill="#00862d" textAnchor="middle" letterSpacing="4">ADPS</text>
+    </svg>
+  );
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -277,7 +309,7 @@ export default function App() {
     <div className="min-h-screen bg-white font-sans text-slate-900">
       <AnimatePresence>
         {showSignup && (
-          <SignupModal onSignup={handleSignup} />
+          <SignupModal onSignup={handleSignup} onClose={() => setShowSignup(false)} />
         )}
         {showContact && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
@@ -300,15 +332,9 @@ export default function App() {
             className="flex cursor-pointer items-center gap-3"
             onClick={() => handleTabClick('home')}
           >
-            <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-sea-green text-white shadow-lg">
-              {/* Pyramid A Logo */}
-              <svg viewBox="0 0 100 100" className="h-8 w-8 fill-current">
-                <path d="M50 15 L85 85 L15 85 Z" fill="none" stroke="currentColor" strokeWidth="8" strokeLinejoin="round" />
-                <path d="M35 55 L65 55" fill="none" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />
-              </svg>
-            </div>
-            <span className="text-2xl font-black tracking-tighter text-sea-green">
-              A D PROFESSIONAL SOLUTION
+            <ADPSLogo className="h-12 w-12" />
+            <span className="hidden text-xl font-black tracking-tighter text-slate-900 sm:block">
+              A D <span className="text-sea-green">Professional Solution</span>
             </span>
           </div>
 
@@ -939,7 +965,7 @@ function ContactModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function SignupModal({ onSignup }: { onSignup: (data: UserData) => void }) {
+function SignupModal({ onSignup, onClose }: { onSignup: (data: UserData) => void, onClose: () => void }) {
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [isLoginMode, setIsLoginMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -1013,12 +1039,18 @@ function SignupModal({ onSignup }: { onSignup: (data: UserData) => void }) {
         animate={{ scale: 1, opacity: 1, y: 0 }}
         className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl"
       >
-        <div className={cn("p-8 text-center text-white transition-colors", isAdminMode ? "bg-slate-800" : "bg-sea-green")}>
+        <div className={cn("relative p-8 text-center text-white transition-colors", isAdminMode ? "bg-slate-800" : "bg-sea-green")}>
+          <button 
+            onClick={onClose}
+            className="absolute right-4 top-4 rounded-full p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <X size={20} />
+          </button>
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md">
             {isAdminMode ? <ShieldCheck size={32} /> : <Users size={32} />}
           </div>
           <h2 className="text-2xl font-black tracking-tight">
-            {isAdminMode ? 'Admin Portal' : isLoginMode ? 'Welcome Back' : 'Welcome to A D Pro'}
+            {isAdminMode ? 'Admin Portal' : isLoginMode ? 'Welcome Back' : 'Welcome to A D Professional Solution'}
           </h2>
           <p className="mt-2 text-sea-green-light/80">
             {isAdminMode ? 'Enter your credentials to manage tenders' : isLoginMode ? 'Please login to continue' : 'Please sign up to access all professional tools'}
@@ -1172,7 +1204,7 @@ function TenderUpdateView({ user, updates, onAddUpdate }: { user: UserData | nul
 
   const openWhatsApp = () => {
     const emailText = user?.email ? ` My email is ${user.email}.` : '';
-    const message = encodeURIComponent(`Hello A D Pro, I want to receive tender updates for: ${keywords || 'All Tenders'} in category: ${category}.${emailText}`);
+    const message = encodeURIComponent(`Hello A D Professional Solution, I want to receive tender updates for: ${keywords || 'All Tenders'} in category: ${category}.${emailText}`);
     window.open(`https://wa.me/919876543210?text=${message}`, '_blank');
   };
 
