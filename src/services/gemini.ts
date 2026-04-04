@@ -2,25 +2,37 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 const API_KEY = process.env.GEMINI_API_KEY || "";
 
-export const analyzeBidRate = async (scopeOfWork: string, estimatedValue: string) => {
+export const analyzeBidRate = async (
+  scopeOfWork: string, 
+  estimatedValue: string,
+  materialCost: string,
+  laborCost: string,
+  profitMargin: string,
+  competitionLevel: string,
+  projectDuration: string
+) => {
   if (!API_KEY) {
     throw new Error("Gemini API key is missing. Please add it to your secrets.");
   }
 
   const genAI = new GoogleGenAI({ apiKey: API_KEY });
-  const model = "gemini-3-flash-preview";
+  const model = "gemini-3.1-pro-preview"; // Use pro model for better reasoning
 
   const prompt = `
     You are an expert in Indian Government Tendering, GeM (Government e-Marketplace) bids, and cost estimation.
-    Analyze the following scope of work and estimated bid value to suggest a competitive bidding rate strategy.
-    Determine if the bidder should quote below, at par, or above the estimated value, and suggest a percentage range.
-    Provide a detailed reasoning based on the complexity, typical margins, and risks associated with the scope of work.
+    Analyze the following project details to suggest a highly specific, accurate, and competitive bidding rate strategy.
+    
+    Project Details:
+    - Scope of Work: ${scopeOfWork}
+    - Estimated Bid Value: ${estimatedValue}
+    - Estimated Material Cost: ${materialCost || 'Not provided'}
+    - Estimated Labor Cost: ${laborCost || 'Not provided'}
+    - Target Profit Margin: ${profitMargin || 'Not provided'}
+    - Competition Level: ${competitionLevel || 'Medium'}
+    - Project Duration: ${projectDuration || 'Not provided'}
 
-    Scope of Work:
-    ${scopeOfWork}
-
-    Estimated Bid Value:
-    ${estimatedValue}
+    Calculate a detailed breakdown and provide a specific recommended bid value. 
+    Consider inflation, typical hidden costs, compliance costs, and the level of competition.
   `;
 
   try {
@@ -40,17 +52,35 @@ export const analyzeBidRate = async (scopeOfWork: string, estimatedValue: string
               type: Type.STRING,
               description: "Suggested percentage range (e.g., '5% to 10% below')"
             },
+            recommendedBidValue: {
+              type: Type.STRING,
+              description: "The exact recommended bid value in ₹ (e.g., '₹ 45,50,000')"
+            },
+            costBreakdown: {
+              type: Type.OBJECT,
+              properties: {
+                materials: { type: Type.STRING },
+                labor: { type: Type.STRING },
+                overheadsAndCompliance: { type: Type.STRING },
+                profit: { type: Type.STRING }
+              },
+              required: ["materials", "labor", "overheadsAndCompliance", "profit"]
+            },
             reasoning: {
               type: Type.STRING,
-              description: "Detailed reasoning for the suggestion based on the scope of work"
+              description: "Detailed reasoning for the suggestion based on the scope of work and costs"
+            },
+            competitiveStrategy: {
+              type: Type.STRING,
+              description: "Advice on how to position the bid against competitors"
             },
             riskFactors: {
               type: Type.ARRAY,
               items: { type: Type.STRING },
-              description: "Potential risk factors to consider when quoting"
+              description: "Potential risk factors and hidden costs to consider when quoting"
             }
           },
-          required: ["suggestion", "percentageRange", "reasoning", "riskFactors"]
+          required: ["suggestion", "percentageRange", "recommendedBidValue", "costBreakdown", "reasoning", "competitiveStrategy", "riskFactors"]
         }
       }
     });

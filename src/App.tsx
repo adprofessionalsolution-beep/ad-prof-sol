@@ -1592,6 +1592,12 @@ function AnalyzerView() {
 function BidRateAnalyzerView() {
   const [scopeOfWork, setScopeOfWork] = useState('');
   const [estimatedValue, setEstimatedValue] = useState('');
+  const [materialCost, setMaterialCost] = useState('');
+  const [laborCost, setLaborCost] = useState('');
+  const [profitMargin, setProfitMargin] = useState('');
+  const [competitionLevel, setCompetitionLevel] = useState('Medium');
+  const [projectDuration, setProjectDuration] = useState('');
+  
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [result, setResult] = useState<any | null>(null);
@@ -1651,7 +1657,15 @@ function BidRateAnalyzerView() {
     setError(null);
 
     try {
-      const analysis = await analyzeBidRate(scopeOfWork, estimatedValue);
+      const analysis = await analyzeBidRate(
+        scopeOfWork, 
+        estimatedValue,
+        materialCost,
+        laborCost,
+        profitMargin,
+        competitionLevel,
+        projectDuration
+      );
       setResult(analysis);
     } catch (err: any) {
       console.error(err);
@@ -1662,17 +1676,17 @@ function BidRateAnalyzerView() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8">
+    <div className="mx-auto max-w-6xl space-y-8">
       <div className="text-center">
-        <h2 className="text-3xl font-bold tracking-tight text-slate-900">Bid Rate Analyzer</h2>
-        <p className="mt-2 text-slate-500">Analyze the scope of work to get suggestions on competitive bidding rates.</p>
+        <h2 className="text-3xl font-bold tracking-tight text-slate-900">Advanced Bid Rate Analyzer</h2>
+        <p className="mt-2 text-slate-500">Provide detailed project estimates to get a highly accurate, competitive bidding strategy.</p>
       </div>
 
-      <div className="grid gap-8 md:grid-cols-2">
-        <div className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="grid gap-8 lg:grid-cols-12">
+        <div className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-5">
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-bold text-slate-700">Scope of Work</label>
+              <label className="block text-sm font-bold text-slate-700">Scope of Work <span className="text-red-500">*</span></label>
               <button 
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isExtracting}
@@ -1693,19 +1707,80 @@ function BidRateAnalyzerView() {
               value={scopeOfWork}
               onChange={(e) => setScopeOfWork(e.target.value)}
               placeholder="Paste the detailed scope of work here or upload a PDF..."
-              rows={8}
+              rows={4}
               className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
             />
           </div>
-          <div>
-            <label className="block text-sm font-bold text-slate-700">Estimated Bid Value (₹)</label>
-            <input 
-              type="text" 
-              value={estimatedValue}
-              onChange={(e) => setEstimatedValue(e.target.value)}
-              placeholder="e.g., 50,00,000"
-              className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
-            />
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-bold text-slate-700">Estimated Bid Value (₹) <span className="text-red-500">*</span></label>
+              <input 
+                type="text" 
+                value={estimatedValue}
+                onChange={(e) => setEstimatedValue(e.target.value)}
+                placeholder="e.g., 50,00,000"
+                className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700">Project Duration (Months)</label>
+              <input 
+                type="text" 
+                value={projectDuration}
+                onChange={(e) => setProjectDuration(e.target.value)}
+                placeholder="e.g., 6"
+                className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-bold text-slate-700">Material Cost (₹)</label>
+              <input 
+                type="text" 
+                value={materialCost}
+                onChange={(e) => setMaterialCost(e.target.value)}
+                placeholder="e.g., 20,00,000"
+                className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700">Labor Cost (₹)</label>
+              <input 
+                type="text" 
+                value={laborCost}
+                onChange={(e) => setLaborCost(e.target.value)}
+                placeholder="e.g., 15,00,000"
+                className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-bold text-slate-700">Target Profit Margin (%)</label>
+              <input 
+                type="text" 
+                value={profitMargin}
+                onChange={(e) => setProfitMargin(e.target.value)}
+                placeholder="e.g., 15"
+                className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700">Competition Level</label>
+              <select
+                value={competitionLevel}
+                onChange={(e) => setCompetitionLevel(e.target.value)}
+                className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+              >
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+              </select>
+            </div>
           </div>
           
           {error && (
@@ -1733,22 +1808,52 @@ function BidRateAnalyzerView() {
           </button>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 lg:col-span-7">
           {result ? (
             <div className="space-y-6">
-              <div className="rounded-xl bg-white p-6 shadow-sm">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Suggestion</h3>
-                <div className="mt-2 flex items-center gap-3">
-                  <span className={cn(
-                    "rounded-lg px-3 py-1 text-lg font-black uppercase",
-                    result.suggestion === 'Below' ? "bg-green-100 text-green-700" :
-                    result.suggestion === 'Above' ? "bg-red-100 text-red-700" :
-                    "bg-blue-100 text-blue-700"
-                  )}>
-                    {result.suggestion} Estimated Value
-                  </span>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-xl bg-white p-6 shadow-sm border-l-4 border-sea-green">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Recommended Bid Value</h3>
+                  <p className="mt-2 text-2xl font-black text-slate-900">{result.recommendedBidValue}</p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className={cn(
+                      "rounded-md px-2 py-0.5 text-xs font-bold uppercase",
+                      result.suggestion === 'Below' ? "bg-green-100 text-green-700" :
+                      result.suggestion === 'Above' ? "bg-red-100 text-red-700" :
+                      "bg-blue-100 text-blue-700"
+                    )}>
+                      {result.suggestion} Estimated Value
+                    </span>
+                    <span className="text-xs font-bold text-slate-500">{result.percentageRange}</span>
+                  </div>
                 </div>
-                <p className="mt-4 text-xl font-bold text-slate-900">{result.percentageRange}</p>
+
+                <div className="rounded-xl bg-white p-6 shadow-sm">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Cost Breakdown</h3>
+                  <div className="mt-3 space-y-2 text-sm">
+                    <div className="flex justify-between border-b border-slate-100 pb-1">
+                      <span className="text-slate-500">Materials:</span>
+                      <span className="font-bold text-slate-700">{result.costBreakdown.materials}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-slate-100 pb-1">
+                      <span className="text-slate-500">Labor:</span>
+                      <span className="font-bold text-slate-700">{result.costBreakdown.labor}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-slate-100 pb-1">
+                      <span className="text-slate-500">Overheads/Compliance:</span>
+                      <span className="font-bold text-slate-700">{result.costBreakdown.overheadsAndCompliance}</span>
+                    </div>
+                    <div className="flex justify-between pt-1">
+                      <span className="text-sea-green font-bold">Est. Profit:</span>
+                      <span className="font-black text-sea-green">{result.costBreakdown.profit}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-white p-6 shadow-sm">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Competitive Strategy</h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-700 font-medium">{result.competitiveStrategy}</p>
               </div>
 
               <div className="rounded-xl bg-white p-6 shadow-sm">
@@ -1757,7 +1862,7 @@ function BidRateAnalyzerView() {
               </div>
 
               <div className="rounded-xl bg-white p-6 shadow-sm">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Risk Factors</h3>
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Risk Factors & Hidden Costs</h3>
                 <ul className="mt-3 space-y-2">
                   {result.riskFactors.map((risk: string, idx: number) => (
                     <li key={idx} className="flex items-start gap-2 text-sm text-slate-600">
@@ -1772,7 +1877,7 @@ function BidRateAnalyzerView() {
             <div className="flex h-full flex-col items-center justify-center text-center opacity-50">
               <Calculator size={48} className="mb-4 text-slate-400" />
               <p className="text-sm font-medium text-slate-500">
-                Enter the scope of work and estimated value<br/>to get a competitive bidding suggestion.
+                Enter the project details and costs<br/>to get an advanced, highly specific bidding suggestion.
               </p>
             </div>
           )}
