@@ -1343,6 +1343,17 @@ function AnalyzerView() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    if (file) {
+      const timer = setTimeout(() => {
+        setFile(null);
+        setResult(null);
+        setError("Session expired. Uploaded document was deleted automatically after 10 minutes for security.");
+      }, 10 * 60 * 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [file]);
+
   const handleExportPDF = async () => {
     if (!resultRef.current) return;
     setIsExporting(true);
@@ -1603,6 +1614,17 @@ function BidRateAnalyzerView() {
   const [result, setResult] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (scopeOfWork) {
+      const timer = setTimeout(() => {
+        setScopeOfWork('');
+        setResult(null);
+        setError("Session expired. Uploaded document text was deleted automatically after 10 minutes for security.");
+      }, 10 * 60 * 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [scopeOfWork]);
 
   const extractTextFromPDF = async (file: File): Promise<string> => {
     const arrayBuffer = await file.arrayBuffer();
@@ -1899,6 +1921,16 @@ function CertificateView() {
   const [isPreview, setIsPreview] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const certificateRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (formData.letterhead || formData.signature) {
+      const timer = setTimeout(() => {
+        setFormData(prev => ({ ...prev, letterhead: null, signature: null }));
+        alert("Session expired. Uploaded images were deleted automatically after 10 minutes for security.");
+      }, 10 * 60 * 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [formData.letterhead, formData.signature]);
 
   const handleDownload = async () => {
     if (!certificateRef.current) return;
@@ -2383,6 +2415,17 @@ function EscalationView() {
   const [isExporting, setIsExporting] = useState(false);
   const matrixRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    if (letterhead || signature) {
+      const timer = setTimeout(() => {
+        setLetterhead(null);
+        setSignature(null);
+        alert("Session expired. Uploaded images were deleted automatically after 10 minutes for security.");
+      }, 10 * 60 * 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [letterhead, signature]);
+
   const addRow = () => {
     const nextLevel = matrix.length + 1;
     setMatrix([...matrix, { 
@@ -2710,6 +2753,16 @@ function NonBankruptcyView() {
   });
   const [isExporting, setIsExporting] = useState(false);
   const documentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (formData.letterhead || formData.signature) {
+      const timer = setTimeout(() => {
+        setFormData(prev => ({ ...prev, letterhead: null, signature: null }));
+        alert("Session expired. Uploaded images were deleted automatically after 10 minutes for security.");
+      }, 10 * 60 * 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [formData.letterhead, formData.signature]);
 
   const handleExport = async () => {
     if (!documentRef.current) return;
