@@ -2,6 +2,66 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 const API_KEY = process.env.GEMINI_API_KEY || "";
 
+export const analyzeBidRate = async (scopeOfWork: string, estimatedValue: string) => {
+  if (!API_KEY) {
+    throw new Error("Gemini API key is missing. Please add it to your secrets.");
+  }
+
+  const genAI = new GoogleGenAI({ apiKey: API_KEY });
+  const model = "gemini-3-flash-preview";
+
+  const prompt = `
+    You are an expert in Indian Government Tendering, GeM (Government e-Marketplace) bids, and cost estimation.
+    Analyze the following scope of work and estimated bid value to suggest a competitive bidding rate strategy.
+    Determine if the bidder should quote below, at par, or above the estimated value, and suggest a percentage range.
+    Provide a detailed reasoning based on the complexity, typical margins, and risks associated with the scope of work.
+
+    Scope of Work:
+    ${scopeOfWork}
+
+    Estimated Bid Value:
+    ${estimatedValue}
+  `;
+
+  try {
+    const response = await genAI.models.generateContent({
+      model,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            suggestion: {
+              type: Type.STRING,
+              description: "The primary suggestion: 'Below', 'At Par', or 'Above'"
+            },
+            percentageRange: {
+              type: Type.STRING,
+              description: "Suggested percentage range (e.g., '5% to 10% below')"
+            },
+            reasoning: {
+              type: Type.STRING,
+              description: "Detailed reasoning for the suggestion based on the scope of work"
+            },
+            riskFactors: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+              description: "Potential risk factors to consider when quoting"
+            }
+          },
+          required: ["suggestion", "percentageRange", "reasoning", "riskFactors"]
+        }
+      }
+    });
+    
+    return JSON.parse(response.text);
+  } catch (error) {
+    console.error("Error analyzing bid rate:", error);
+    throw error;
+  }
+};
+
 export const analyzeBidDocument = async (text: string) => {
   if (!API_KEY) {
     throw new Error("Gemini API key is missing. Please add it to your secrets.");

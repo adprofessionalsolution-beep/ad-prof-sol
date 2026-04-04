@@ -39,20 +39,22 @@ import {
   LogOut,
   Lock,
   CheckCircle,
-  Send
+  Send,
+  Calculator,
+  AlertTriangle
 } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 // @ts-ignore
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { jsPDF } from 'jspdf';
 import * as htmlToImage from 'html-to-image';
-import { analyzeBidDocument } from './services/gemini';
+import { analyzeBidDocument, analyzeBidRate } from './services/gemini';
 import { cn } from './lib/utils';
 
 // Set PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
-type Tab = 'home' | 'analyzer' | 'certificate' | 'escalation' | 'bankruptcy' | 'pricing' | 'tender-update' | 'admin';
+type Tab = 'home' | 'analyzer' | 'rate-analyzer' | 'certificate' | 'escalation' | 'bankruptcy' | 'pricing' | 'tender-update' | 'admin';
 
 interface UserData {
   name: string;
@@ -325,6 +327,12 @@ export default function App() {
               AI Bid Analyzer
             </button>
             <button 
+              onClick={() => handleTabClick('rate-analyzer')}
+              className={cn("text-sm font-bold uppercase tracking-wider transition-colors hover:text-sea-green", activeTab === 'rate-analyzer' ? "text-sea-green" : "text-slate-600")}
+            >
+              Bid Rate Analyzer
+            </button>
+            <button 
               onClick={() => handleTabClick('tender-update')}
               className={cn("text-sm font-bold uppercase tracking-wider transition-colors hover:text-sea-green", activeTab === 'tender-update' ? "text-sea-green" : "text-slate-600")}
             >
@@ -439,6 +447,7 @@ export default function App() {
               <div className="flex flex-col gap-2 p-4">
                 <button onClick={() => { handleTabClick('home'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Home</button>
                 <button onClick={() => { handleTabClick('analyzer'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">AI Bid Analyzer</button>
+                <button onClick={() => { handleTabClick('rate-analyzer'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Bid Rate Analyzer</button>
                 <button onClick={() => { handleTabClick('tender-update'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Tender Update</button>
                 
                 <div className="border-y border-sea-green-light py-2">
@@ -513,6 +522,18 @@ export default function App() {
               <Lock size={48} className="mb-4 text-slate-300" />
               <h2 className="text-2xl font-bold text-slate-900">Premium Feature</h2>
               <p className="mt-2 text-slate-500">Upgrade to Pro or Yearly plan to access AI Bid Analyzer.</p>
+              <button onClick={() => handleTabClick('pricing')} className="mt-6 rounded-xl bg-sea-green px-6 py-3 font-bold text-white shadow-lg hover:bg-sea-green-dark">View Plans</button>
+            </div>
+          )
+        )}
+        {activeTab === 'rate-analyzer' && (
+          user?.isAdmin || user?.plan === 'Pro Monthly' || user?.plan === 'Yearly Plan' ? (
+            <BidRateAnalyzerView />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <Lock size={48} className="mb-4 text-slate-300" />
+              <h2 className="text-2xl font-bold text-slate-900">Premium Feature</h2>
+              <p className="mt-2 text-slate-500">Upgrade to Pro or Yearly plan to access Bid Rate Analyzer.</p>
               <button onClick={() => handleTabClick('pricing')} className="mt-6 rounded-xl bg-sea-green px-6 py-3 font-bold text-white shadow-lg hover:bg-sea-green-dark">View Plans</button>
             </div>
           )
@@ -1633,6 +1654,199 @@ function AnalyzerView() {
           </div>
         </motion.div>
       )}
+    </div>
+  );
+}
+
+function BidRateAnalyzerView() {
+  const [scopeOfWork, setScopeOfWork] = useState('');
+  const [estimatedValue, setEstimatedValue] = useState('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [result, setResult] = useState<any | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const extractTextFromPDF = async (file: File): Promise<string> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = "";
+    
+    // Extract text from first 10 pages to stay within reasonable limits
+    const numPages = Math.min(pdf.numPages, 10);
+    for (let i = 1; i <= numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map((item: any) => item.str).join(" ");
+      fullText += pageText + "\n";
+    }
+    return fullText;
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      setError("Please upload a valid PDF file.");
+      return;
+    }
+
+    setIsExtracting(true);
+    setError(null);
+
+    try {
+      const text = await extractTextFromPDF(file);
+      setScopeOfWork(text);
+    } catch (err) {
+      console.error("Error extracting text from PDF:", err);
+      setError("Failed to extract text from the PDF. Please try pasting the text manually.");
+    } finally {
+      setIsExtracting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleAnalyze = async () => {
+    if (!scopeOfWork || !estimatedValue) {
+      setError("Please provide both Scope of Work and Estimated Bid Value.");
+      return;
+    }
+    
+    setIsAnalyzing(true);
+    setResult(null);
+    setError(null);
+
+    try {
+      const analysis = await analyzeBidRate(scopeOfWork, estimatedValue);
+      setResult(analysis);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "An error occurred during analysis.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-4xl space-y-8">
+      <div className="text-center">
+        <h2 className="text-3xl font-bold tracking-tight text-slate-900">Bid Rate Analyzer</h2>
+        <p className="mt-2 text-slate-500">Analyze the scope of work to get suggestions on competitive bidding rates.</p>
+      </div>
+
+      <div className="grid gap-8 md:grid-cols-2">
+        <div className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-bold text-slate-700">Scope of Work</label>
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isExtracting}
+                className="flex items-center gap-1 text-xs font-bold text-sea-green hover:text-sea-green-dark disabled:opacity-50"
+              >
+                {isExtracting ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                {isExtracting ? 'Extracting...' : 'Upload PDF'}
+              </button>
+              <input 
+                type="file" 
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                accept=".pdf"
+                className="hidden"
+              />
+            </div>
+            <textarea 
+              value={scopeOfWork}
+              onChange={(e) => setScopeOfWork(e.target.value)}
+              placeholder="Paste the detailed scope of work here or upload a PDF..."
+              rows={8}
+              className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700">Estimated Bid Value (₹)</label>
+            <input 
+              type="text" 
+              value={estimatedValue}
+              onChange={(e) => setEstimatedValue(e.target.value)}
+              placeholder="e.g., 50,00,000"
+              className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+            />
+          </div>
+          
+          {error && (
+            <div className="rounded-xl bg-red-50 p-4 text-sm text-red-600">
+              {error}
+            </div>
+          )}
+
+          <button 
+            onClick={handleAnalyze}
+            disabled={isAnalyzing || !scopeOfWork || !estimatedValue}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-sea-green py-4 font-bold text-white shadow-lg transition-all hover:bg-sea-green-dark disabled:opacity-50"
+          >
+            {isAnalyzing ? (
+              <>
+                <Loader2 size={20} className="animate-spin" />
+                Analyzing Rate...
+              </>
+            ) : (
+              <>
+                <Calculator size={20} />
+                Analyze Bid Rate
+              </>
+            )}
+          </button>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+          {result ? (
+            <div className="space-y-6">
+              <div className="rounded-xl bg-white p-6 shadow-sm">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Suggestion</h3>
+                <div className="mt-2 flex items-center gap-3">
+                  <span className={cn(
+                    "rounded-lg px-3 py-1 text-lg font-black uppercase",
+                    result.suggestion === 'Below' ? "bg-green-100 text-green-700" :
+                    result.suggestion === 'Above' ? "bg-red-100 text-red-700" :
+                    "bg-blue-100 text-blue-700"
+                  )}>
+                    {result.suggestion} Estimated Value
+                  </span>
+                </div>
+                <p className="mt-4 text-xl font-bold text-slate-900">{result.percentageRange}</p>
+              </div>
+
+              <div className="rounded-xl bg-white p-6 shadow-sm">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Reasoning</h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">{result.reasoning}</p>
+              </div>
+
+              <div className="rounded-xl bg-white p-6 shadow-sm">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Risk Factors</h3>
+                <ul className="mt-3 space-y-2">
+                  {result.riskFactors.map((risk: string, idx: number) => (
+                    <li key={idx} className="flex items-start gap-2 text-sm text-slate-600">
+                      <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-500" />
+                      <span>{risk}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center text-center opacity-50">
+              <Calculator size={48} className="mb-4 text-slate-400" />
+              <p className="text-sm font-medium text-slate-500">
+                Enter the scope of work and estimated value<br/>to get a competitive bidding suggestion.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
