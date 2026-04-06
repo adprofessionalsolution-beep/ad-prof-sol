@@ -16,7 +16,7 @@ export const analyzeBidRate = async (
   }
 
   const genAI = new GoogleGenAI({ apiKey: API_KEY });
-  const model = "gemini-3.1-pro-preview"; // Use pro model for better reasoning
+  const model = "gemini-3-flash-preview"; // Use flash model to avoid free tier quota limits
 
   const prompt = `
     You are an expert in Indian Government Tendering, GeM (Government e-Marketplace) bids, and cost estimation.

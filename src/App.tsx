@@ -1422,7 +1422,11 @@ function AnalyzerView() {
       setResult(analysis);
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "An error occurred during analysis.");
+      if (err.message && err.message.includes('429')) {
+        setError("AI API quota exceeded. Please try again in a minute or check your API key billing details.");
+      } else {
+        setError(err.message || "An error occurred during analysis.");
+      }
     } finally {
       setIsAnalyzing(false);
     }
@@ -1691,7 +1695,11 @@ function BidRateAnalyzerView() {
       setResult(analysis);
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "An error occurred during analysis.");
+      if (err.message && err.message.includes('429')) {
+        setError("AI API quota exceeded. Please try again in a minute or check your API key billing details.");
+      } else {
+        setError(err.message || "An error occurred during analysis.");
+      }
     } finally {
       setIsAnalyzing(false);
     }
