@@ -1,0 +1,21 @@
+<svg viewBox="0 0 400 360" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(0, 10)">
+    <!-- Left Leg - Left Half (Bright Green) -->
+    <path d="M 200 20 L 60 220 L 95 220 L 200 65 Z" fill="#00cc44" />
+    
+    <!-- Left Leg - Right Half (Medium Green) -->
+    <path d="M 200 65 L 95 220 L 130 220 L 200 110 Z" fill="#00a651" />
+    
+    <!-- Right Leg - Left Half (Dark Green) -->
+    <path d="M 200 65 L 200 110 L 270 220 L 305 220 Z" fill="#00862d" />
+    
+    <!-- Right Leg - Right Half (Darker Green) -->
+    <path d="M 200 20 L 200 65 L 305 220 L 340 220 Z" fill="#006622" />
+
+    <!-- Crossbar Top Half (Bright Green) -->
+    <path d="M 174.5 150 L 225.5 150 L 238.2 170 L 161.8 170 Z" fill="#00b33c" />
+    
+    <!-- Crossbar Bottom Half (Dark Green) -->
+    <path d="M 161.8 170 L 238.2 170 L 251 190 L 149 190 Z" fill="#007a27" />
+  </g>
+</svg>
