@@ -246,13 +246,14 @@ export default function App() {
       setUser(JSON.parse(savedUser));
     }
 
-    // Fetch tenders from Google Apps Script API
+    // Fetch tenders from Google Apps Script API (via proxy)
     const fetchTenders = async () => {
       setIsTendersLoading(true);
       try {
-        const response = await fetch("https://script.google.com/macros/s/AKfycbwjErpA7hK38Pqa-v7iINy9LdXXtJPtO5ZX2yxLn2mDoZ6Yfwv-WlRUX5mKnZzrJVC-/exec");
+        const response = await fetch("/api/tenders");
         const data = await response.json();
         
+        if (data.error) throw new Error(data.error);
         // Map data to TenderUpdate interface if needed, or use directly
         const mappedUpdates = data.map((t: any, index: number) => ({
           id: t.bidnumber || `api-${index}`,

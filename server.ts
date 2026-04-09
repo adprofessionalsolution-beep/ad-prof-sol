@@ -2,6 +2,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import nodemailer from "nodemailer";
 import path from "path";
+import axios from "axios";
 
 // In-memory database for clients
 interface Client {
@@ -24,6 +25,18 @@ async function startServer() {
   app.use(express.json());
 
   // API routes
+  app.get("/api/tenders", async (req, res) => {
+    try {
+      const response = await axios.get("https://script.google.com/macros/s/AKfycbwjErpA7hK38Pqa-v7iINy9LdXXtJPtO5ZX2yxLn2mDoZ6Yfwv-WlRUX5mKnZzrJVC-/exec", {
+        maxRedirects: 5
+      });
+      res.json(response.data);
+    } catch (error: any) {
+      console.error("Error proxying tenders:", error.message);
+      res.status(500).json({ error: "Failed to fetch tenders from source" });
+    }
+  });
+
   app.post("/api/signup", async (req, res) => {
     try {
       const { name, email, whatsapp, plan } = req.body;
