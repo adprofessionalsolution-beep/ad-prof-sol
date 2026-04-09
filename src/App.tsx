@@ -75,6 +75,10 @@ interface TenderUpdate {
   date: string;
   description: string;
   documentLink?: string;
+  bidnumber?: string;
+  department?: string;
+  location?: string;
+  filelink?: string;
 }
 
 function AdminDashboard() {
@@ -234,6 +238,7 @@ export default function App() {
   const [showSignup, setShowSignup] = useState(false);
   const [showContact, setShowContact] = useState(false);
   const [tenderUpdates, setTenderUpdates] = useState<TenderUpdate[]>([]);
+  const [isTendersLoading, setIsTendersLoading] = useState(true);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('ad_pro_user');
@@ -241,18 +246,48 @@ export default function App() {
       setUser(JSON.parse(savedUser));
     }
 
-    const savedUpdates = localStorage.getItem('ad_pro_tender_updates');
-    if (savedUpdates) {
-      setTenderUpdates(JSON.parse(savedUpdates));
-    } else {
-      // Initial sample updates
-      const initialUpdates = [
-        { id: '1', title: 'Solar Power Plant Installation - Gujarat', category: 'Works', date: '2026-03-20', description: 'New tender for 50MW solar plant installation in Kutch region.' },
-        { id: '2', title: 'IT Infrastructure Upgrade - Delhi Metro', category: 'Services', date: '2026-03-19', description: 'Maintenance and upgrade of network infrastructure for Phase 4.' }
-      ];
-      setTenderUpdates(initialUpdates);
-      localStorage.setItem('ad_pro_tender_updates', JSON.stringify(initialUpdates));
-    }
+    // Fetch tenders from Google Apps Script API
+    const fetchTenders = async () => {
+      setIsTendersLoading(true);
+      try {
+        const response = await fetch("https://script.google.com/macros/s/AKfycbwjErpA7hK38Pqa-v7iINy9LdXXtJPtO5ZX2yxLn2mDoZ6Yfwv-WlRUX5mKnZzrJVC-/exec");
+        const data = await response.json();
+        
+        // Map data to TenderUpdate interface if needed, or use directly
+        const mappedUpdates = data.map((t: any, index: number) => ({
+          id: t.bidnumber || `api-${index}`,
+          title: t.department && t.location ? `${t.department} - ${t.location}` : (t.title || 'New Tender'),
+          category: t.category || 'Works',
+          date: t.date || new Date().toISOString().split('T')[0],
+          description: t.description || `Tender from ${t.department || 'Government'} at ${t.location || 'various locations'}.`,
+          documentLink: t.filelink || t.documentLink,
+          bidnumber: t.bidnumber,
+          department: t.department,
+          location: t.location,
+          filelink: t.filelink
+        }));
+        
+        setTenderUpdates(mappedUpdates);
+        localStorage.setItem('ad_pro_tender_updates', JSON.stringify(mappedUpdates));
+      } catch (error) {
+        console.error("Error fetching tenders:", error);
+        // Fallback to local storage if fetch fails
+        const savedUpdates = localStorage.getItem('ad_pro_tender_updates');
+        if (savedUpdates) {
+          setTenderUpdates(JSON.parse(savedUpdates));
+        } else {
+          const initialUpdates = [
+            { id: '1', title: 'Solar Power Plant Installation - Gujarat', category: 'Works', date: '2026-03-20', description: 'New tender for 50MW solar plant installation in Kutch region.' },
+            { id: '2', title: 'IT Infrastructure Upgrade - Delhi Metro', category: 'Services', date: '2026-03-19', description: 'Maintenance and upgrade of network infrastructure for Phase 4.' }
+          ];
+          setTenderUpdates(initialUpdates);
+        }
+      } finally {
+        setIsTendersLoading(false);
+      }
+    };
+
+    fetchTenders();
   }, []);
 
   const handleTabClick = (tab: Tab) => {
@@ -565,7 +600,12 @@ export default function App() {
           )
         )}
         {activeTab === 'tender-update' && (
-          <TenderUpdateView user={user} updates={tenderUpdates} onAddUpdate={addTenderUpdate} />
+          <TenderUpdateView 
+            user={user} 
+            updates={tenderUpdates} 
+            onAddUpdate={addTenderUpdate} 
+            isLoadingTenders={isTendersLoading}
+          />
         )}
         {activeTab === 'certificate' && (
           user?.isAdmin || user?.plan === 'Pro Monthly' || user?.plan === 'Yearly Plan' ? (
@@ -1075,7 +1115,12 @@ function SignupModal({ onSignup, onClose }: { onSignup: (data: UserData) => void
   );
 }
 
-function TenderUpdateView({ user, updates, onAddUpdate }: { user: UserData | null, updates: TenderUpdate[], onAddUpdate: (update: Omit<TenderUpdate, 'id' | 'date'>) => void }) {
+function TenderUpdateView({ user, updates, onAddUpdate, isLoadingTenders }: { 
+  user: UserData | null, 
+  updates: TenderUpdate[], 
+  onAddUpdate: (update: Omit<TenderUpdate, 'id' | 'date'>) => void,
+  isLoadingTenders: boolean
+}) {
   const [keywords, setKeywords] = useState('');
   const [category, setCategory] = useState('All');
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -1278,7 +1323,15 @@ function TenderUpdateView({ user, updates, onAddUpdate }: { user: UserData | nul
           </div>
 
           <div className="space-y-4">
-            {filteredUpdates.length > 0 ? filteredUpdates.map((update) => (
+            {isLoadingTenders ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="animate-pulse rounded-2xl border border-slate-100 bg-slate-50 p-6">
+                  <div className="h-4 w-24 rounded bg-slate-200"></div>
+                  <div className="mt-4 h-6 w-3/4 rounded bg-slate-200"></div>
+                  <div className="mt-2 h-4 w-full rounded bg-slate-200"></div>
+                </div>
+              ))
+            ) : filteredUpdates.length > 0 ? filteredUpdates.map((update) => (
               <motion.div 
                 key={update.id}
                 initial={{ opacity: 0, y: 10 }}
@@ -1291,6 +1344,11 @@ function TenderUpdateView({ user, updates, onAddUpdate }: { user: UserData | nul
                       <span className="rounded-md bg-sea-green-light px-2 py-0.5 text-[10px] font-bold text-sea-green uppercase">
                         {update.category}
                       </span>
+                      {update.bidnumber && (
+                        <span className="text-[10px] font-bold text-slate-500">
+                          ID: {update.bidnumber}
+                        </span>
+                      )}
                       <span className="text-[10px] font-medium text-slate-400">
                         {update.date}
                       </span>
