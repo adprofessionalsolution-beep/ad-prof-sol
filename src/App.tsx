@@ -825,6 +825,45 @@ function HomeView({ onServiceClick }: { onServiceClick: (tab: Tab) => void }) {
         </div>
       </section>
 
+      {/* Service Areas Section (SEO Optimized) */}
+      <section className="border-t border-slate-100 pt-20">
+        <div className="text-center">
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+            Leading <span className="text-sea-green">GeM Consultant</span> in Kanchrapara & West Bengal
+          </h2>
+          <p className="mx-auto mt-4 max-w-3xl text-slate-500">
+            A D Professional Solution is a premier GeM consultant based in <strong>Kanchrapara</strong>, North 24 Parganas. 
+            We provide expert guidance for the <strong>GeM</strong> (Government e-Marketplace) portal and comprehensive 
+            Government Tendering services across all districts of West Bengal.
+          </p>
+        </div>
+
+        <div className="mt-12 rounded-3xl bg-slate-50 p-8 md:p-12">
+          <h3 className="text-xl font-bold text-slate-900 mb-6">Serving All Districts of West Bengal:</h3>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+            {[
+              "Alipurduar", "Bankura", "Birbhum", "Cooch Behar", "Dakshin Dinajpur", 
+              "Darjeeling", "Hooghly", "Howrah", "Jalpaiguri", "Jhargram", 
+              "Kalimpong", "Kolkata", "Malda", "Murshidabad", "Nadia", 
+              "North 24 Parganas", "Paschim Bardhaman", "Paschim Medinipur", 
+              "Purba Bardhaman", "Purba Medinipur", "Purulia", "South 24 Parganas", 
+              "Uttar Dinajpur"
+            ].map((district) => (
+              <div key={district} className="flex items-center gap-2 text-sm text-slate-600">
+                <div className="h-1.5 w-1.5 rounded-full bg-sea-green"></div>
+                {district}
+              </div>
+            ))}
+          </div>
+          <p className="mt-10 text-sm leading-relaxed text-slate-500 italic">
+            Whether you are looking for a GeM consultant in Kolkata, assistance with tenders in Howrah, 
+            or catalog management in Siliguri, A D Professional Solution is here to help your business grow 
+            through government procurement. Our Kanchrapara office serves as a hub for professional 
+            consultation for vendors across the state.
+          </p>
+        </div>
+      </section>
+
       {/* Why Choose Us */}
       <section className="rounded-3xl bg-sea-green-light p-8 md:p-16">          <div className="grid gap-12 md:grid-cols-2 md:items-center">
           <div>
