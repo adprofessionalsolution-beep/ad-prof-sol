@@ -83,11 +83,28 @@ interface TenderUpdate {
 
 function AdminDashboard() {
   const [clients, setClients] = useState<UserData[]>([]);
+  const [apiKey, setApiKey] = useState('');
+  const [isSavingKey, setIsSavingKey] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
     const users = JSON.parse(localStorage.getItem('ad_pro_users') || '[]');
     setClients(users.filter((u: UserData) => !u.isAdmin));
+    
+    // Load saved API key
+    const savedKey = localStorage.getItem('ad_pro_gemini_key');
+    if (savedKey) setApiKey(savedKey);
   }, []);
+
+  const handleSaveApiKey = () => {
+    setIsSavingKey(true);
+    localStorage.setItem('ad_pro_gemini_key', apiKey);
+    setTimeout(() => {
+      setIsSavingKey(false);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    }, 800);
+  };
 
   const handleStatusChange = (email: string, action: 'cancel' | 'extend' | 'changePlan', newPlan?: string) => {
     const allUsers = JSON.parse(localStorage.getItem('ad_pro_users') || '[]');
@@ -115,10 +132,41 @@ function AdminDashboard() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-slate-900">Admin Dashboard</h1>
-          <p className="mt-2 text-slate-600">Manage client subscriptions and details.</p>
+          <p className="mt-2 text-slate-600">Manage client subscriptions and system settings.</p>
+        </div>
+
+        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <ShieldCheck size={20} className="text-sea-green" />
+            <h3 className="font-bold text-slate-900">Gemini API Configuration</h3>
+          </div>
+          <div className="space-y-3">
+            <div className="relative">
+              <input 
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Enter Gemini API Key"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:border-sea-green focus:ring-sea-green"
+              />
+            </div>
+            <button 
+              onClick={handleSaveApiKey}
+              disabled={isSavingKey}
+              className={cn(
+                "w-full rounded-xl py-2.5 text-sm font-bold text-white transition-all shadow-md",
+                saveSuccess ? "bg-emerald-500" : "bg-slate-800 hover:bg-slate-900"
+              )}
+            >
+              {isSavingKey ? 'Saving...' : saveSuccess ? 'Key Saved Successfully!' : 'Update API Key'}
+            </button>
+            <p className="text-[10px] text-slate-400 text-center">
+              This key is used for the AI Bid Analyzer and MII Certificate Generator.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -947,6 +995,10 @@ function ContactModal({ onClose }: { onClose: () => void }) {
 function SignupModal({ onSignup, onClose }: { onSignup: (data: UserData) => void, onClose: () => void }) {
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [isLoginMode, setIsLoginMode] = useState(false);
+  const [isForgotMode, setIsForgotMode] = useState(false);
+  const [resetStep, setResetStep] = useState(1); // 1: Email, 2: Code & New Password
+  const [resetCode, setResetCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<UserData>({
     name: '',
@@ -960,6 +1012,66 @@ function SignupModal({ onSignup, onClose }: { onSignup: (data: UserData) => void
     registrationDate: new Date().toISOString()
   });
   const [adminKey, setAdminKey] = useState('');
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setResetStep(2);
+        alert('Reset code sent to your email.');
+      } else {
+        alert(data.error || 'Failed to send reset code.');
+      }
+    } catch (err) {
+      alert('Error connecting to server.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/auth/verify-reset-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email, code: resetCode })
+      });
+      const data = await response.json();
+      if (data.success) {
+        // Update password in localStorage
+        const users = JSON.parse(localStorage.getItem('ad_pro_users') || '[]');
+        const userIndex = users.findIndex((u: UserData) => u.email === formData.email);
+        
+        if (userIndex !== -1) {
+          users[userIndex].password = newPassword;
+          localStorage.setItem('ad_pro_users', JSON.stringify(users));
+          alert('Password reset successful. Please login with your new password.');
+          setIsForgotMode(false);
+          setIsLoginMode(true);
+          setResetStep(1);
+          setResetCode('');
+          setNewPassword('');
+        } else {
+          alert('User not found in local records.');
+        }
+      } else {
+        alert(data.error || 'Invalid or expired code.');
+      }
+    } catch (err) {
+      alert('Error connecting to server.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1029,14 +1141,82 @@ function SignupModal({ onSignup, onClose }: { onSignup: (data: UserData) => void
             {isAdminMode ? <ShieldCheck size={32} /> : <Users size={32} />}
           </div>
           <h2 className="text-2xl font-black tracking-tight">
-            {isAdminMode ? 'Admin Portal' : isLoginMode ? 'Welcome Back' : 'Welcome to A D Professional Solution'}
+            {isAdminMode ? 'Admin Portal' : isForgotMode ? 'Reset Password' : isLoginMode ? 'Welcome Back' : 'Welcome to A D Professional Solution'}
           </h2>
           <p className="mt-2 text-sea-green-light/80">
-            {isAdminMode ? 'Enter your credentials to manage tenders' : isLoginMode ? 'Please login to continue' : 'Please sign up to access all professional tools'}
+            {isAdminMode ? 'Enter your credentials to manage tenders' : isForgotMode ? 'Follow the steps to recover your account' : isLoginMode ? 'Please login to continue' : 'Please sign up to access all professional tools'}
           </p>
         </div>
         
-        <form onSubmit={handleSubmit} className="space-y-6 p-8">
+        {isForgotMode ? (
+          <form onSubmit={resetStep === 1 ? handleForgotPassword : handleResetPassword} className="space-y-6 p-8">
+            {resetStep === 1 ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">Email Address</label>
+                  <input 
+                    type="email" 
+                    required
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="john@example.com"
+                    className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+                  />
+                </div>
+                <button 
+                  type="submit"
+                  disabled={isLoading}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-sea-green py-4 font-bold text-white shadow-lg transition-all hover:bg-sea-green-dark active:scale-95 disabled:opacity-50"
+                >
+                  {isLoading ? "Sending..." : "Send Reset Code"}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">Verification Code</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={resetCode}
+                    onChange={(e) => setResetCode(e.target.value)}
+                    placeholder="123456"
+                    className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">New Password</label>
+                  <input 
+                    type="password" 
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+                  />
+                </div>
+                <button 
+                  type="submit"
+                  disabled={isLoading}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-sea-green py-4 font-bold text-white shadow-lg transition-all hover:bg-sea-green-dark active:scale-95 disabled:opacity-50"
+                >
+                  {isLoading ? "Resetting..." : "Reset Password"}
+                </button>
+              </div>
+            )}
+            <button 
+              type="button"
+              onClick={() => {
+                setIsForgotMode(false);
+                setResetStep(1);
+              }}
+              className="w-full text-xs font-bold text-slate-400 hover:text-slate-600"
+            >
+              Back to Login
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-6 p-8">
           {!isAdminMode ? (
             <div className="space-y-4">
               {!isLoginMode && (
@@ -1077,7 +1257,18 @@ function SignupModal({ onSignup, onClose }: { onSignup: (data: UserData) => void
                 </div>
               )}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">Password</label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">Password</label>
+                  {isLoginMode && (
+                    <button 
+                      type="button"
+                      onClick={() => setIsForgotMode(true)}
+                      className="text-[10px] font-bold text-sea-green hover:underline"
+                    >
+                      Forgot Password?
+                    </button>
+                  )}
+                </div>
                 <input 
                   type="password" 
                   required
@@ -1091,7 +1282,16 @@ function SignupModal({ onSignup, onClose }: { onSignup: (data: UserData) => void
           ) : (
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">Admin Email</label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">Admin Email</label>
+                  <button 
+                    type="button"
+                    onClick={() => setIsForgotMode(true)}
+                    className="text-[10px] font-bold text-slate-400 hover:underline"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
                 <input 
                   type="email" 
                   required
@@ -1143,6 +1343,7 @@ function SignupModal({ onSignup, onClose }: { onSignup: (data: UserData) => void
               onClick={() => {
                 setIsAdminMode(!isAdminMode);
                 setIsLoginMode(false);
+                setIsForgotMode(false);
               }}
               className="text-xs font-bold text-slate-400 hover:text-slate-600"
             >
@@ -1150,6 +1351,7 @@ function SignupModal({ onSignup, onClose }: { onSignup: (data: UserData) => void
             </button>
           </div>
         </form>
+      )}
       </motion.div>
     </motion.div>
   );

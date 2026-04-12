@@ -17,6 +17,7 @@ interface Client {
 }
 
 let clients: Client[] = [];
+let resetCodes: { [email: string]: { code: string, expires: number } } = {};
 
 async function startServer() {
   const app = express();
@@ -25,6 +26,57 @@ async function startServer() {
   app.use(express.json());
 
   // API routes
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      resetCodes[email] = { code, expires: Date.now() + 15 * 60 * 1000 }; // 15 mins
+
+      if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST || "smtp.gmail.com",
+          port: Number(process.env.SMTP_PORT) || 587,
+          auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+          },
+        });
+
+        await transporter.sendMail({
+          from: `"A D Professional Solution" <${process.env.SMTP_USER}>`,
+          to: email,
+          subject: "Password Reset Code - A D Professional Solution",
+          text: `Your password reset code is: ${code}. It will expire in 15 minutes.`,
+          html: `
+            <h3>Password Reset Request</h3>
+            <p>You requested a password reset. Use the code below to reset your password:</p>
+            <h2 style="color: #00A63F; letter-spacing: 5px;">${code}</h2>
+            <p>This code will expire in 15 minutes.</p>
+            <p>If you didn't request this, please ignore this email.</p>
+          `,
+        });
+      } else {
+        console.log(`Mock Reset Email for ${email}: Code is ${code}`);
+      }
+
+      res.json({ success: true, message: "Reset code sent to your email." });
+    } catch (error) {
+      console.error("Error in forgot-password:", error);
+      res.status(500).json({ success: false, error: "Failed to send reset code." });
+    }
+  });
+
+  app.post("/api/auth/verify-reset-code", (req, res) => {
+    const { email, code } = req.body;
+    const entry = resetCodes[email];
+
+    if (entry && entry.code === code && entry.expires > Date.now()) {
+      res.json({ success: true });
+    } else {
+      res.status(400).json({ success: false, error: "Invalid or expired code." });
+    }
+  });
+
   app.get("/api/tenders", async (req, res) => {
     try {
       const response = await axios.get("https://script.google.com/macros/s/AKfycbwjErpA7hK38Pqa-v7iINy9LdXXtJPtO5ZX2yxLn2mDoZ6Yfwv-WlRUX5mKnZzrJVC-/exec", {

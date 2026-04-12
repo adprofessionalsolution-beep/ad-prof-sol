@@ -1,6 +1,9 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const API_KEY = process.env.GEMINI_API_KEY || "";
+const getApiKey = () => {
+  const savedKey = localStorage.getItem('ad_pro_gemini_key');
+  return savedKey || process.env.GEMINI_API_KEY || "";
+};
 
 export const analyzeBidRate = async (
   scopeOfWork: string, 
@@ -11,11 +14,12 @@ export const analyzeBidRate = async (
   competitionLevel: string,
   projectDuration: string
 ) => {
-  if (!API_KEY) {
-    throw new Error("Gemini API key is missing. Please add it to your secrets.");
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    throw new Error("Gemini API key is missing. Please add it in the Admin Dashboard or contact support.");
   }
 
-  const genAI = new GoogleGenAI({ apiKey: API_KEY });
+  const genAI = new GoogleGenAI({ apiKey });
   const model = "gemini-3-flash-preview"; // Use flash model to avoid free tier quota limits
 
   const prompt = `
@@ -93,11 +97,12 @@ export const analyzeBidRate = async (
 };
 
 export const analyzeBidDocument = async (text: string) => {
-  if (!API_KEY) {
-    throw new Error("Gemini API key is missing. Please add it to your secrets.");
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    throw new Error("Gemini API key is missing. Please add it in the Admin Dashboard or contact support.");
   }
 
-  const genAI = new GoogleGenAI({ apiKey: API_KEY });
+  const genAI = new GoogleGenAI({ apiKey });
   const model = "gemini-3-flash-preview";
 
   const prompt = `
