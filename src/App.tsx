@@ -1413,6 +1413,14 @@ function TenderUpdateView({ user, updates, onAddUpdate, isLoadingTenders }: {
     return categoryMatch && locationMatch && keywordMatch;
   });
 
+  const maskBidId = (text: string) => {
+    if (!text) return text;
+    // Matches patterns like GEM/2024/B/1234567 or GEM/2026/B/1234567
+    return text.replace(/GEM\/\d{4}\/[A-Z]\/\d+/g, "GEM/2026/B/XXXXXXX");
+  };
+
+  const isUserLoggedIn = !!user && !!user.email;
+
   return (
     <div className="mx-auto max-w-5xl space-y-8">
       <div className="text-center">
@@ -1632,7 +1640,7 @@ function TenderUpdateView({ user, updates, onAddUpdate, isLoadingTenders }: {
                       )}
                       {update.bidnumber && (
                         <span className="text-[10px] font-bold text-slate-500">
-                          ID: {user ? update.bidnumber : "GEM/2026/B/XXXXXXX"}
+                          ID: {isUserLoggedIn ? update.bidnumber : "GEM/2026/B/XXXXXXX"}
                         </span>
                       )}
                       <span className="text-[10px] font-medium text-slate-400">
@@ -1640,13 +1648,13 @@ function TenderUpdateView({ user, updates, onAddUpdate, isLoadingTenders }: {
                       </span>
                     </div>
                     <h4 className="mt-2 text-lg font-bold text-slate-900 group-hover:text-sea-green transition-colors">
-                      {update.title}
+                      {isUserLoggedIn ? update.title : maskBidId(update.title)}
                     </h4>
                     <p className="mt-2 text-sm text-slate-500 leading-relaxed">
                       {update.description}
                     </p>
                     {update.documentLink && (
-                      user ? (
+                      isUserLoggedIn ? (
                         <a 
                           href={update.documentLink} 
                           target="_blank" 
