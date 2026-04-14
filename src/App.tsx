@@ -553,7 +553,7 @@ export default function App() {
   }, []);
 
   const handleTabClick = (tab: Tab) => {
-    if (!user && tab !== 'home' && tab !== 'pricing' && tab !== 'tender-update') {
+    if (!user && tab !== 'home' && tab !== 'pricing' && tab !== 'tender-update' && tab !== 'blog') {
       setShowSignup(true);
     } else {
       setActiveTab(tab);
