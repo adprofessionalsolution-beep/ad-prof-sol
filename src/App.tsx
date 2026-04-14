@@ -604,6 +604,18 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-white font-sans text-slate-900">
+      {/* Floating WhatsApp Button */}
+      <a 
+        href="https://wa.me/message/44V2N2KT67HMO1" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="fixed bottom-6 right-6 z-[90] flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-2xl transition-all hover:scale-110 active:scale-95"
+        title="Chat on WhatsApp"
+      >
+        <MessageCircle size={32} fill="currentColor" className="text-white" />
+        <span className="absolute -top-2 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white animate-bounce">1</span>
+      </a>
+
       <AnimatePresence>
         {showSignup && (
           <SignupModal onSignup={handleSignup} onClose={() => setShowSignup(false)} />
@@ -949,6 +961,17 @@ export default function App() {
               <ul className="mt-4 space-y-2 text-sm text-slate-500">
                 <li>Email: adprofessionalsolution@gmail.com</li>
                 <li>Address: North 24 Parganas, West Bengal, India, 743145</li>
+                <li className="pt-2">
+                  <a 
+                    href="https://wa.me/message/44V2N2KT67HMO1" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 font-bold text-sea-green hover:underline"
+                  >
+                    <MessageCircle size={16} fill="currentColor" />
+                    WhatsApp Us
+                  </a>
+                </li>
               </ul>
             </div>
           </div>
@@ -1196,7 +1219,7 @@ function ContactModal({ onClose }: { onClose: () => void }) {
         <h2 className="text-2xl font-black tracking-tight">Contact Us</h2>
       </div>
 
-      <div className="w-full h-[600px] bg-slate-50">
+      <div className="w-full h-[600px] bg-slate-50 relative">
         <iframe 
           src="https://docs.google.com/forms/d/e/1FAIpQLSddX0yFMdWoAVS2maMCEj4usU5s9cTKfqwAGx7352tfdn-9qg/viewform?embedded=true" 
           width="100%" 
@@ -1208,6 +1231,18 @@ function ContactModal({ onClose }: { onClose: () => void }) {
         >
           Loading…
         </iframe>
+        
+        <div className="absolute bottom-6 left-0 right-0 flex justify-center px-6">
+          <a 
+            href="https://wa.me/message/44V2N2KT67HMO1" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 rounded-full bg-[#25D366] px-8 py-4 font-bold text-white shadow-xl transition-all hover:scale-105 active:scale-95"
+          >
+            <MessageCircle size={24} fill="currentColor" />
+            Chat with us on WhatsApp
+          </a>
+        </div>
       </div>
     </div>
   );
@@ -1622,7 +1657,7 @@ function TenderUpdateView({ user, updates, onAddUpdate, isLoadingTenders }: {
   const openWhatsApp = () => {
     const emailText = user?.email ? ` My email is ${user.email}.` : '';
     const message = encodeURIComponent(`Hello A D Professional Solution, I want to receive tender updates for: ${keywords || 'All Tenders'} in category: ${category} and location: ${location}.${emailText}`);
-    window.open(`https://wa.me/919876543210?text=${message}`, '_blank');
+    window.open(`https://wa.me/message/44V2N2KT67HMO1?text=${message}`, '_blank');
   };
 
   const filteredUpdates = updates.filter(u => {
