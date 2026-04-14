@@ -54,7 +54,16 @@ import { cn } from './lib/utils';
 // Set PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
-type Tab = 'home' | 'analyzer' | 'rate-analyzer' | 'certificate' | 'escalation' | 'bankruptcy' | 'pricing' | 'tender-update' | 'admin';
+type Tab = 'home' | 'analyzer' | 'rate-analyzer' | 'certificate' | 'escalation' | 'bankruptcy' | 'pricing' | 'tender-update' | 'blog' | 'admin';
+
+interface BlogPost {
+  id: string;
+  title: string;
+  content: string;
+  date: string;
+  author: string;
+  image?: string;
+}
 
 interface UserData {
   name: string;
@@ -86,6 +95,9 @@ function AdminDashboard() {
   const [apiKey, setApiKey] = useState('');
   const [isSavingKey, setIsSavingKey] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [blogs, setBlogs] = useState<BlogPost[]>([]);
+  const [showBlogForm, setShowBlogForm] = useState(false);
+  const [newBlog, setNewBlog] = useState({ title: '', content: '', image: '' });
 
   useEffect(() => {
     const users = JSON.parse(localStorage.getItem('ad_pro_users') || '[]');
@@ -94,6 +106,10 @@ function AdminDashboard() {
     // Load saved API key
     const savedKey = localStorage.getItem('ad_pro_gemini_key');
     if (savedKey) setApiKey(savedKey);
+
+    // Load blogs
+    const savedBlogs = JSON.parse(localStorage.getItem('ad_pro_blogs') || '[]');
+    setBlogs(savedBlogs);
   }, []);
 
   const handleSaveApiKey = () => {
@@ -104,6 +120,29 @@ function AdminDashboard() {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     }, 800);
+  };
+
+  const handleAddBlog = (e: React.FormEvent) => {
+    e.preventDefault();
+    const blog: BlogPost = {
+      id: Math.random().toString(36).substr(2, 9),
+      title: newBlog.title,
+      content: newBlog.content,
+      image: newBlog.image,
+      date: new Date().toLocaleDateString(),
+      author: 'Admin'
+    };
+    const updatedBlogs = [blog, ...blogs];
+    setBlogs(updatedBlogs);
+    localStorage.setItem('ad_pro_blogs', JSON.stringify(updatedBlogs));
+    setNewBlog({ title: '', content: '', image: '' });
+    setShowBlogForm(false);
+  };
+
+  const deleteBlog = (id: string) => {
+    const updatedBlogs = blogs.filter(b => b.id !== id);
+    setBlogs(updatedBlogs);
+    localStorage.setItem('ad_pro_blogs', JSON.stringify(updatedBlogs));
   };
 
   const handleStatusChange = (email: string, action: 'cancel' | 'extend' | 'changePlan', newPlan?: string) => {
@@ -135,39 +174,106 @@ function AdminDashboard() {
       <div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-slate-900">Admin Dashboard</h1>
-          <p className="mt-2 text-slate-600">Manage client subscriptions and system settings.</p>
+          <p className="mt-2 text-slate-600">Manage client subscriptions, system settings, and blogs.</p>
         </div>
 
-        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <ShieldCheck size={20} className="text-sea-green" />
-            <h3 className="font-bold text-slate-900">Gemini API Configuration</h3>
-          </div>
-          <div className="space-y-3">
-            <div className="relative">
-              <input 
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="Enter Gemini API Key"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:border-sea-green focus:ring-sea-green"
-              />
+        <div className="flex flex-col gap-4 w-full max-w-md">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <ShieldCheck size={20} className="text-sea-green" />
+              <h3 className="font-bold text-slate-900">Gemini API Configuration</h3>
             </div>
-            <button 
-              onClick={handleSaveApiKey}
-              disabled={isSavingKey}
-              className={cn(
-                "w-full rounded-xl py-2.5 text-sm font-bold text-white transition-all shadow-md",
-                saveSuccess ? "bg-emerald-500" : "bg-slate-800 hover:bg-slate-900"
-              )}
-            >
-              {isSavingKey ? 'Saving...' : saveSuccess ? 'Key Saved Successfully!' : 'Update API Key'}
-            </button>
-            <p className="text-[10px] text-slate-400 text-center">
-              This key is used for the AI Bid Analyzer and MII Certificate Generator.
-            </p>
+            <div className="space-y-3">
+              <div className="relative">
+                <input 
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="Enter Gemini API Key"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:border-sea-green focus:ring-sea-green"
+                />
+              </div>
+              <button 
+                onClick={handleSaveApiKey}
+                disabled={isSavingKey}
+                className={cn(
+                  "w-full rounded-xl py-2.5 text-sm font-bold text-white transition-all shadow-md",
+                  saveSuccess ? "bg-emerald-500" : "bg-slate-800 hover:bg-slate-900"
+                )}
+              >
+                {isSavingKey ? 'Saving...' : saveSuccess ? 'Key Saved Successfully!' : 'Update API Key'}
+              </button>
+            </div>
           </div>
+
+          <button 
+            onClick={() => setShowBlogForm(!showBlogForm)}
+            className="flex items-center justify-center gap-2 rounded-xl bg-sea-green py-3 font-bold text-white shadow-lg transition-all hover:bg-sea-green-dark"
+          >
+            <Plus size={20} />
+            {showBlogForm ? 'Close Blog Editor' : 'Create New Blog Post'}
+          </button>
         </div>
+      </div>
+
+      <AnimatePresence>
+        {showBlogForm && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="mb-8 overflow-hidden rounded-2xl border-2 border-sea-green bg-white p-6 shadow-xl"
+          >
+            <h3 className="mb-4 text-xl font-bold text-slate-900">New Blog Post</h3>
+            <form onSubmit={handleAddBlog} className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700">Title</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={newBlog.title}
+                    onChange={(e) => setNewBlog({ ...newBlog, title: e.target.value })}
+                    className="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm focus:border-sea-green focus:ring-sea-green"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700">Image URL (Optional)</label>
+                  <input 
+                    type="url" 
+                    value={newBlog.image}
+                    onChange={(e) => setNewBlog({ ...newBlog, image: e.target.value })}
+                    className="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm focus:border-sea-green focus:ring-sea-green"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700">Content</label>
+                <textarea 
+                  required
+                  rows={4}
+                  value={newBlog.content}
+                  onChange={(e) => setNewBlog({ ...newBlog, content: e.target.value })}
+                  className="mt-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm focus:border-sea-green focus:ring-sea-green"
+                />
+              </div>
+              <button type="submit" className="rounded-xl bg-slate-800 px-8 py-2 font-bold text-white hover:bg-slate-900">Publish Post</button>
+            </form>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="mb-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {blogs.map(blog => (
+          <div key={blog.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h4 className="font-bold text-slate-900">{blog.title}</h4>
+            <p className="mt-1 text-xs text-slate-500 line-clamp-2">{blog.content}</p>
+            <div className="mt-4 flex items-center justify-between">
+              <span className="text-[10px] text-slate-400">{blog.date}</span>
+              <button onClick={() => deleteBlog(blog.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16} /></button>
+            </div>
+          </div>
+        ))}
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -275,6 +381,113 @@ function ADPSLogo({ className = "h-8 w-8" }: { className?: string }) {
       {/* Text */}
       <text x="200" y="330" fontFamily="Arial, Helvetica, sans-serif" fontSize="100" fontWeight="900" fill="#00862d" textAnchor="middle" letterSpacing="4">ADPS</text>
     </svg>
+  );
+}
+
+function BlogView() {
+  const [blogs, setBlogs] = useState<BlogPost[]>([]);
+  const [selectedBlog, setSelectedBlog] = useState<BlogPost | null>(null);
+
+  useEffect(() => {
+    const savedBlogs = JSON.parse(localStorage.getItem('ad_pro_blogs') || '[]');
+    setBlogs(savedBlogs);
+  }, []);
+
+  if (selectedBlog) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-8">
+        <button 
+          onClick={() => setSelectedBlog(null)}
+          className="flex items-center gap-2 font-bold text-sea-green hover:underline"
+        >
+          <ChevronRight className="rotate-180" size={20} /> Back to Blogs
+        </button>
+        
+        <article className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
+          {selectedBlog.image && (
+            <img 
+              src={selectedBlog.image} 
+              alt={selectedBlog.title} 
+              className="h-64 w-full object-cover md:h-96"
+              referrerPolicy="no-referrer"
+            />
+          )}
+          <div className="p-8 md:p-12">
+            <div className="flex items-center gap-4 text-xs font-bold text-slate-400 uppercase tracking-widest">
+              <span>{selectedBlog.date}</span>
+              <span className="h-1 w-1 rounded-full bg-slate-300"></span>
+              <span>By {selectedBlog.author}</span>
+            </div>
+            <h1 className="mt-4 text-3xl font-black text-slate-900 md:text-5xl">{selectedBlog.title}</h1>
+            <div className="mt-8 whitespace-pre-wrap text-lg leading-relaxed text-slate-600">
+              {selectedBlog.content}
+            </div>
+          </div>
+        </article>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-7xl space-y-12">
+      <div className="text-center">
+        <h2 className="text-4xl font-black tracking-tight text-slate-900">Expert Insights & Updates</h2>
+        <p className="mt-4 text-slate-500 text-lg">Stay updated with the latest trends in GeM and Government Tendering.</p>
+      </div>
+
+      {blogs.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-slate-50 text-slate-300">
+            <FileText size={40} />
+          </div>
+          <h3 className="text-xl font-bold text-slate-900">No blog posts yet</h3>
+          <p className="mt-2 text-slate-500">Check back soon for expert articles and guides.</p>
+        </div>
+      ) : (
+        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+          {blogs.map((blog, idx) => (
+            <motion.div 
+              key={blog.id}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: idx * 0.1 }}
+              onClick={() => setSelectedBlog(blog)}
+              className="group cursor-pointer overflow-hidden rounded-3xl border border-slate-200 bg-white transition-all hover:border-sea-green/30 hover:shadow-xl"
+            >
+              <div className="aspect-video w-full overflow-hidden bg-slate-100">
+                {blog.image ? (
+                  <img 
+                    src={blog.image} 
+                    alt={blog.title} 
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-slate-300">
+                    <ImageIcon size={48} />
+                  </div>
+                )}
+              </div>
+              <div className="p-6">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  <span>{blog.date}</span>
+                </div>
+                <h3 className="mt-3 text-xl font-bold text-slate-900 group-hover:text-sea-green transition-colors line-clamp-2">
+                  {blog.title}
+                </h3>
+                <p className="mt-3 text-sm text-slate-500 line-clamp-3">
+                  {blog.content}
+                </p>
+                <div className="mt-6 flex items-center gap-2 text-sm font-bold text-sea-green">
+                  Read More <ChevronRight size={16} />
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -448,6 +661,12 @@ export default function App() {
             >
               Tender Update
             </button>
+            <button 
+              onClick={() => handleTabClick('blog')}
+              className={cn("text-sm font-bold uppercase tracking-wider transition-colors hover:text-sea-green", activeTab === 'blog' ? "text-sea-green" : "text-slate-600")}
+            >
+              Blog
+            </button>
             
             {/* Bid Documents Column */}
             <div className="flex flex-col gap-1.5 border-l-2 border-sea-green/20 pl-6 py-1">
@@ -559,6 +778,7 @@ export default function App() {
                 <button onClick={() => { handleTabClick('analyzer'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">AI Bid Analyzer</button>
                 <button onClick={() => { handleTabClick('rate-analyzer'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Bid Rate Analyzer</button>
                 <button onClick={() => { handleTabClick('tender-update'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Tender Update</button>
+                <button onClick={() => { handleTabClick('blog'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Blog</button>
                 
                 <div className="border-y border-sea-green-light py-2">
                   <button 
@@ -656,6 +876,7 @@ export default function App() {
             isLoadingTenders={isTendersLoading}
           />
         )}
+        {activeTab === 'blog' && <BlogView />}
         {activeTab === 'certificate' && (
           user?.isAdmin || user?.plan === 'Pro Monthly' || user?.plan === 'Yearly Plan' ? (
             <CertificateView />
