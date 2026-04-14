@@ -340,7 +340,7 @@ export default function App() {
   }, []);
 
   const handleTabClick = (tab: Tab) => {
-    if (!user && tab !== 'home' && tab !== 'pricing') {
+    if (!user && tab !== 'home' && tab !== 'pricing' && tab !== 'tender-update') {
       setShowSignup(true);
     } else {
       setActiveTab(tab);
@@ -1365,10 +1365,20 @@ function TenderUpdateView({ user, updates, onAddUpdate, isLoadingTenders }: {
 }) {
   const [keywords, setKeywords] = useState('');
   const [category, setCategory] = useState('All');
+  const [location, setLocation] = useState('All');
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showAdminForm, setShowAdminForm] = useState(false);
-  const [newUpdate, setNewUpdate] = useState({ title: '', category: 'Goods', description: '', documentLink: '' });
+  const [newUpdate, setNewUpdate] = useState({ title: '', category: 'Goods', description: '', documentLink: '', location: '' });
+
+  const districts = [
+    "Alipurduar", "Bankura", "Birbhum", "Cooch Behar", "Dakshin Dinajpur", 
+    "Darjeeling", "Hooghly", "Howrah", "Jalpaiguri", "Jhargram", 
+    "Kalimpong", "Kolkata", "Malda", "Murshidabad", "Nadia", 
+    "North 24 Parganas", "Paschim Bardhaman", "Paschim Medinipur", 
+    "Purba Bardhaman", "Purba Medinipur", "Purulia", "South 24 Parganas", 
+    "Uttar Dinajpur"
+  ];
 
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1383,18 +1393,25 @@ function TenderUpdateView({ user, updates, onAddUpdate, isLoadingTenders }: {
     e.preventDefault();
     if (newUpdate.title && newUpdate.description) {
       onAddUpdate(newUpdate);
-      setNewUpdate({ title: '', category: 'Goods', description: '', documentLink: '' });
+      setNewUpdate({ title: '', category: 'Goods', description: '', documentLink: '', location: '' });
       setShowAdminForm(false);
     }
   };
 
   const openWhatsApp = () => {
     const emailText = user?.email ? ` My email is ${user.email}.` : '';
-    const message = encodeURIComponent(`Hello A D Professional Solution, I want to receive tender updates for: ${keywords || 'All Tenders'} in category: ${category}.${emailText}`);
+    const message = encodeURIComponent(`Hello A D Professional Solution, I want to receive tender updates for: ${keywords || 'All Tenders'} in category: ${category} and location: ${location}.${emailText}`);
     window.open(`https://wa.me/919876543210?text=${message}`, '_blank');
   };
 
-  const filteredUpdates = category === 'All' ? updates : updates.filter(u => u.category === category);
+  const filteredUpdates = updates.filter(u => {
+    const categoryMatch = category === 'All' || u.category === category;
+    const locationMatch = location === 'All' || u.location === location;
+    const keywordMatch = !keywords || 
+      u.title.toLowerCase().includes(keywords.toLowerCase()) || 
+      u.description.toLowerCase().includes(keywords.toLowerCase());
+    return categoryMatch && locationMatch && keywordMatch;
+  });
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -1452,6 +1469,17 @@ function TenderUpdateView({ user, updates, onAddUpdate, isLoadingTenders }: {
                     <option value="Goods">Goods</option>
                     <option value="Services">Services</option>
                     <option value="Works">Works</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700">Location</label>
+                  <select 
+                    value={newUpdate.location}
+                    onChange={(e) => setNewUpdate({ ...newUpdate, location: e.target.value })}
+                    className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+                  >
+                    <option value="">Select Location</option>
+                    {districts.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </div>
                 <div>
@@ -1520,6 +1548,17 @@ function TenderUpdateView({ user, updates, onAddUpdate, isLoadingTenders }: {
                       <option value="Works">Works</option>
                     </select>
                   </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">Location</label>
+                    <select 
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm focus:border-sea-green focus:ring-sea-green"
+                    >
+                      <option value="All">All Locations</option>
+                      {districts.map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </div>
                   <button 
                     type="submit"
                     disabled={isLoading}
@@ -1586,9 +1625,14 @@ function TenderUpdateView({ user, updates, onAddUpdate, isLoadingTenders }: {
                       <span className="rounded-md bg-sea-green-light px-2 py-0.5 text-[10px] font-bold text-sea-green uppercase">
                         {update.category}
                       </span>
+                      {update.location && (
+                        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 uppercase">
+                          {update.location}
+                        </span>
+                      )}
                       {update.bidnumber && (
                         <span className="text-[10px] font-bold text-slate-500">
-                          ID: {update.bidnumber}
+                          ID: {user ? update.bidnumber : "GEM/2026/B/XXXXXXX"}
                         </span>
                       )}
                       <span className="text-[10px] font-medium text-slate-400">
@@ -1602,15 +1646,21 @@ function TenderUpdateView({ user, updates, onAddUpdate, isLoadingTenders }: {
                       {update.description}
                     </p>
                     {update.documentLink && (
-                      <a 
-                        href={update.documentLink} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-sea-green hover:underline"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                        Download tender document
-                      </a>
+                      user ? (
+                        <a 
+                          href={update.documentLink} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-sea-green hover:underline"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                          Download tender document
+                        </a>
+                      ) : (
+                        <div className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-slate-400">
+                          <Lock size={16} /> Login to Download
+                        </div>
+                      )
                     )}
                   </div>
                   <button className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-400 transition-all hover:bg-sea-green hover:text-white">
