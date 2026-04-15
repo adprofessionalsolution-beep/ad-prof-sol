@@ -90,21 +90,22 @@ async function startServer() {
   });
 
   app.get("/api/tenders", async (req, res) => {
+    const TENDER_URL = "https://script.google.com/macros/s/AKfycbwjErpA7hK38Pqa-v7iINy9LdXXtJPtO5ZX2yxLn2mDoZ6Yfwv-WlRUX5mKnZzrJVC-/exec";
     try {
-      const response = await axios.get("https://script.google.com/macros/s/AKfycbwjErpA7hK38Pqa-v7iINy9LdXXtJPtO5ZX2yxLn2mDoZ6Yfwv-WlRUX5mKnZzrJVC-/exec", {
+      const response = await axios.get(TENDER_URL, {
         maxRedirects: 5,
-        timeout: 10000 // 10 seconds timeout
+        timeout: 10000 
       });
       res.json(response.data);
     } catch (error: any) {
-      console.error("Error proxying tenders:", error.message);
+      console.error(`Error proxying tenders from ${TENDER_URL}:`, error.message);
       if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        console.error("Source responded with:", error.response.status);
-        if (error.response.status === 404) {
-          return res.json([]); // Return empty array if source is not found
-        }
+        console.error("Source responded with status:", error.response.status);
+        return res.status(error.response.status).json({ 
+          error: "Tender source error", 
+          status: error.response.status,
+          message: "The external tender source is currently unavailable."
+        });
       }
       res.status(500).json({ error: "Failed to fetch tenders from source", details: error.message });
     }

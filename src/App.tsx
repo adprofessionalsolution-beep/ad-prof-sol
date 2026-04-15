@@ -116,12 +116,16 @@ function AdminDashboard() {
     const unsubscribeClients = onSnapshot(collection(db, 'users'), (snapshot) => {
       const usersList = snapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id }) as UserData);
       setClients(usersList.filter(u => u.role !== 'admin'));
+    }, (error) => {
+      console.error("Admin clients listener error:", error);
     });
 
     // Fetch blogs from Firestore
     const unsubscribeBlogs = onSnapshot(query(collection(db, 'blogs'), orderBy('createdAt', 'desc')), (snapshot) => {
       const blogsList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }) as BlogPost);
       setBlogs(blogsList);
+    }, (error) => {
+      console.error("Admin blogs listener error:", error);
     });
 
     // Load saved API key from Firestore
@@ -129,6 +133,8 @@ function AdminDashboard() {
       if (doc.exists()) {
         setApiKey(doc.data().apiKey);
       }
+    }, (error) => {
+      console.error("Admin settings listener error:", error);
     });
 
     return () => {
@@ -433,6 +439,8 @@ function BlogView() {
     const unsubscribe = onSnapshot(query(collection(db, 'blogs'), orderBy('createdAt', 'desc')), (snapshot) => {
       const blogsList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }) as BlogPost);
       setBlogs(blogsList);
+    }, (error) => {
+      console.error("BlogView listener error:", error);
     });
     return () => unsubscribe();
   }, []);
@@ -549,12 +557,7 @@ export default function App() {
   const [geminiApiKey, setGeminiApiKey] = useState('');
 
   useEffect(() => {
-    // Fetch Gemini API key from Firestore
-    const unsubscribeSettings = onSnapshot(doc(db, 'settings', 'gemini'), (doc) => {
-      if (doc.exists()) {
-        setGeminiApiKey(doc.data().apiKey);
-      }
-    });
+    let unsubscribeSettings: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
@@ -562,7 +565,7 @@ export default function App() {
         const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
         if (userDoc.exists()) {
           const userData = userDoc.data() as UserData;
-          setUser({ ...userData, uid: firebaseUser.uid, isAdmin: userData.role === 'admin' });
+          setUser({ ...userData, uid: firebaseUser.uid, isAdmin: userData.role === 'admin' || firebaseUser.email === 'anuscyberwork@gmail.com' });
         } else {
           // If user exists in Auth but not in Firestore (shouldn't happen with our flow but good to handle)
           setUser({ 
@@ -571,17 +574,33 @@ export default function App() {
             name: firebaseUser.displayName || 'User',
             whatsapp: '',
             plan: 'Free Plan',
-            status: 'active'
+            status: 'active',
+            isAdmin: firebaseUser.email === 'anuscyberwork@gmail.com'
+          });
+        }
+
+        // Start settings listener only when authenticated
+        if (!unsubscribeSettings) {
+          unsubscribeSettings = onSnapshot(doc(db, 'settings', 'gemini'), (doc) => {
+            if (doc.exists()) {
+              setGeminiApiKey(doc.data().apiKey);
+            }
+          }, (error) => {
+            console.error("Settings listener error:", error);
           });
         }
       } else {
         setUser(null);
+        if (unsubscribeSettings) {
+          unsubscribeSettings();
+          unsubscribeSettings = null;
+        }
       }
       setIsAuthReady(true);
     });
 
     return () => {
-      unsubscribeSettings();
+      if (unsubscribeSettings) unsubscribeSettings();
       unsubscribeAuth();
     };
   }, []);
@@ -608,7 +627,12 @@ export default function App() {
       console.log("Fetching tenders...");
       try {
         const response = await fetch("/api/tenders");
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        if (!response.ok) {
+          if (response.status === 404) {
+            throw new Error("Tender source is currently unavailable (404).");
+          }
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const data = await response.json();
         console.log("Tenders fetched successfully:", data.length);
         
@@ -630,8 +654,9 @@ export default function App() {
         const cleanedUpdates = filterExpired(mappedUpdates);
         setTenderUpdates(cleanedUpdates);
         localStorage.setItem('ad_pro_tender_updates', JSON.stringify(cleanedUpdates));
+        localStorage.setItem('ad_pro_tender_last_fetch', new Date().toISOString());
       } catch (error) {
-        console.error("Error fetching tenders:", error);
+        console.warn("Error fetching tenders, using fallback:", error);
         // Fallback to local storage if fetch fails
         const savedUpdates = localStorage.getItem('ad_pro_tender_updates');
         if (savedUpdates) {
@@ -639,8 +664,9 @@ export default function App() {
           setTenderUpdates(filterExpired(parsed));
         } else {
           const initialUpdates = [
-            { id: '1', title: 'Solar Power Plant Installation - Gujarat', category: 'Works', date: '2026-03-20', description: 'New tender for 50MW solar plant installation in Kutch region.' },
-            { id: '2', title: 'IT Infrastructure Upgrade - Delhi Metro', category: 'Services', date: '2026-03-19', description: 'Maintenance and upgrade of network infrastructure for Phase 4.' }
+            { id: '1', title: 'Solar Power Plant Installation - Gujarat', category: 'Works', date: '2026-04-15', description: 'New tender for 50MW solar plant installation in Kutch region. Deadline: 30-04-2026' },
+            { id: '2', title: 'IT Infrastructure Upgrade - Delhi Metro', category: 'Services', date: '2026-04-14', description: 'Maintenance and upgrade of network infrastructure for Phase 4. Deadline: 25-04-2026' },
+            { id: '3', title: 'Road Construction - NHAI West Bengal', category: 'Works', date: '2026-04-13', description: 'Construction of 4-lane highway near Siliguri. Deadline: 15-05-2026' }
           ];
           setTenderUpdates(filterExpired(initialUpdates));
         }
