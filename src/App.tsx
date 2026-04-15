@@ -527,9 +527,12 @@ export default function App() {
     // Fetch tenders from Google Apps Script API (via proxy)
     const fetchTenders = async () => {
       setIsTendersLoading(true);
+      console.log("Fetching tenders...");
       try {
         const response = await fetch("/api/tenders");
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const data = await response.json();
+        console.log("Tenders fetched successfully:", data.length);
         
         if (data.error) throw new Error(data.error);
         // Map data to TenderUpdate interface if needed, or use directly
@@ -572,6 +575,7 @@ export default function App() {
   }, []);
 
   const handleTabClick = (tab: Tab) => {
+    console.log("Tab clicked:", tab);
     if (!user && tab !== 'home' && tab !== 'pricing' && tab !== 'tender-update' && tab !== 'blog') {
       setSignupMode('signup');
       setShowSignup(true);
@@ -629,7 +633,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-white font-sans text-slate-900">
+    <div className="min-h-screen bg-white font-sans text-slate-900 overflow-x-hidden">
       {/* Floating WhatsApp Button */}
       <a 
         href="https://wa.me/message/44V2N2KT67HMO1" 
@@ -830,11 +834,51 @@ export default function App() {
               className="border-t border-slate-100 bg-white md:hidden"
             >
               <div className="flex flex-col gap-2 p-4">
-                <button onClick={() => { handleTabClick('home'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Home</button>
-                <button onClick={() => { handleTabClick('analyzer'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">AI Bid Analyzer</button>
-                <button onClick={() => { handleTabClick('rate-analyzer'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Bid Rate Analyzer</button>
-                <button onClick={() => { handleTabClick('tender-update'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Tender Update</button>
-                <button onClick={() => { handleTabClick('blog'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Blog</button>
+                <button 
+                  onClick={() => { handleTabClick('home'); setIsMenuOpen(false); }} 
+                  className={cn(
+                    "rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider transition-colors",
+                    activeTab === 'home' ? "bg-sea-green text-white" : "text-slate-600 hover:bg-sea-green-light"
+                  )}
+                >
+                  Home
+                </button>
+                <button 
+                  onClick={() => { handleTabClick('analyzer'); setIsMenuOpen(false); }} 
+                  className={cn(
+                    "rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider transition-colors",
+                    activeTab === 'analyzer' ? "bg-sea-green text-white" : "text-slate-600 hover:bg-sea-green-light"
+                  )}
+                >
+                  AI Bid Analyzer
+                </button>
+                <button 
+                  onClick={() => { handleTabClick('rate-analyzer'); setIsMenuOpen(false); }} 
+                  className={cn(
+                    "rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider transition-colors",
+                    activeTab === 'rate-analyzer' ? "bg-sea-green text-white" : "text-slate-600 hover:bg-sea-green-light"
+                  )}
+                >
+                  Bid Rate Analyzer
+                </button>
+                <button 
+                  onClick={() => { handleTabClick('tender-update'); setIsMenuOpen(false); }} 
+                  className={cn(
+                    "rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider transition-colors",
+                    activeTab === 'tender-update' ? "bg-sea-green text-white" : "text-slate-600 hover:bg-sea-green-light"
+                  )}
+                >
+                  Tender Update
+                </button>
+                <button 
+                  onClick={() => { handleTabClick('blog'); setIsMenuOpen(false); }} 
+                  className={cn(
+                    "rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider transition-colors",
+                    activeTab === 'blog' ? "bg-sea-green text-white" : "text-slate-600 hover:bg-sea-green-light"
+                  )}
+                >
+                  Blog
+                </button>
                 
                 <div className="border-y border-sea-green-light py-2">
                   <button 
@@ -859,7 +903,15 @@ export default function App() {
                     )}
                   </AnimatePresence>
                 </div>
-                <button onClick={() => { handleTabClick('pricing'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Pricing</button>
+                <button 
+                  onClick={() => { handleTabClick('pricing'); setIsMenuOpen(false); }} 
+                  className={cn(
+                    "rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider transition-colors",
+                    activeTab === 'pricing' ? "bg-sea-green text-white" : "text-slate-600 hover:bg-sea-green-light"
+                  )}
+                >
+                  Pricing
+                </button>
                 <button 
                   onClick={() => { setShowContact(true); setIsMenuOpen(false); }} 
                   className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light"
@@ -1402,12 +1454,37 @@ function SignupModal({ onSignup, onClose, initialMode = 'signup' }: {
         alert('Invalid Admin Credentials');
       }
     } else if (isLoginMode) {
-      const users = JSON.parse(localStorage.getItem('ad_pro_users') || '[]');
-      const user = users.find((u: UserData) => u.email === formData.email && u.password === formData.password);
-      if (user) {
-        onSignup(user);
-      } else {
-        alert('Invalid email or password');
+      setIsLoading(true);
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: formData.email, password: formData.password })
+        });
+        const data = await response.json();
+        if (data.success) {
+          onSignup(data.user);
+        } else {
+          // Fallback to local storage if backend login fails (for existing local users)
+          const users = JSON.parse(localStorage.getItem('ad_pro_users') || '[]');
+          const user = users.find((u: UserData) => u.email === formData.email && u.password === formData.password);
+          if (user) {
+            onSignup(user);
+          } else {
+            alert(data.error || 'Invalid email or password');
+          }
+        }
+      } catch (err) {
+        // Fallback to local storage on connection error
+        const users = JSON.parse(localStorage.getItem('ad_pro_users') || '[]');
+        const user = users.find((u: UserData) => u.email === formData.email && u.password === formData.password);
+        if (user) {
+          onSignup(user);
+        } else {
+          alert('Error connecting to server. Please check your connection.');
+        }
+      } finally {
+        setIsLoading(false);
       }
     } else {
       if (formData.name && formData.email && formData.whatsapp && formData.password) {
@@ -1448,7 +1525,7 @@ function SignupModal({ onSignup, onClose, initialMode = 'signup' }: {
       <motion.div 
         initial={{ scale: 0.9, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
-        className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl"
+        className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl bg-white shadow-2xl scrollbar-hide"
       >
         <div className={cn("relative p-8 text-center text-white transition-colors", isAdminMode ? "bg-slate-800" : "bg-sea-green")}>
           <button 
@@ -1759,7 +1836,7 @@ function TenderUpdateView({ user, updates, onAddUpdate, onDeleteUpdate, isLoadin
   const isUserLoggedIn = !!user && !!user.email;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
+    <div className="mx-auto max-w-5xl space-y-8 px-4 sm:px-0">
       <div className="text-center">
         <motion.div 
           initial={{ scale: 0.9, opacity: 0 }}
@@ -1862,9 +1939,9 @@ function TenderUpdateView({ user, updates, onAddUpdate, onDeleteUpdate, isLoadin
         )}
       </AnimatePresence>
 
-      <div className="grid gap-8 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-3">
         {/* Updates Column - Now first on mobile */}
-        <div className="order-1 lg:order-2 lg:col-span-2 space-y-6">
+        <div className="order-1 lg:order-2 lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-bold text-slate-900">Latest Tender Updates</h3>
             <div className="flex items-center gap-2 text-xs font-medium text-slate-400">

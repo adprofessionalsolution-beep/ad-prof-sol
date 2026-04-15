@@ -10,6 +10,7 @@ interface Client {
   name: string;
   email: string;
   whatsapp: string;
+  password?: string;
   plan: string;
   status: 'active' | 'cancelled';
   expiresAt: string;
@@ -26,6 +27,17 @@ async function startServer() {
   app.use(express.json());
 
   // API routes
+  app.post("/api/login", (req, res) => {
+    const { email, password } = req.body;
+    const client = clients.find(c => c.email === email && c.password === password);
+
+    if (client) {
+      res.json({ success: true, user: client });
+    } else {
+      res.status(401).json({ success: false, error: "Invalid email or password" });
+    }
+  });
+
   app.post("/api/auth/forgot-password", async (req, res) => {
     try {
       const { email } = req.body;
@@ -91,7 +103,12 @@ async function startServer() {
 
   app.post("/api/signup", async (req, res) => {
     try {
-      const { name, email, whatsapp, plan } = req.body;
+      const { name, email, whatsapp, password, plan } = req.body;
+
+      // Check if user already exists
+      if (clients.find(c => c.email === email)) {
+        return res.status(400).json({ success: false, error: "User already exists" });
+      }
 
       // Add to in-memory database
       const newClient: Client = {
@@ -99,6 +116,7 @@ async function startServer() {
         name,
         email,
         whatsapp,
+        password,
         plan: plan || 'Free Plan',
         status: 'active',
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
