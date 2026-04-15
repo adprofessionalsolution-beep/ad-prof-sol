@@ -37,6 +37,19 @@ service cloud.firestore {
     //   - description: string (required)
     //   - createdAt: string (ISO 8601)
     //
+    // Collection: tenders
+    // Document ID: {tenderId}
+    // Fields:
+    //   - title: string (required)
+    //   - category: string (required)
+    //   - date: string (required)
+    //   - description: string (required)
+    //   - bidnumber: string
+    //   - department: string
+    //   - location: string
+    //   - filelink: string
+    //   - createdAt: string (ISO 8601)
+    //
     // ===============================================================
 
     // ===============================================================
@@ -97,6 +110,14 @@ service cloud.firestore {
              data.description is string && data.description.size() > 0 && data.description.size() < 2000;
     }
 
+    function isValidTender(data) {
+      return hasOnlyAllowedFields(['title', 'category', 'date', 'description', 'bidnumber', 'department', 'location', 'filelink', 'createdAt']) &&
+             data.title is string && data.title.size() > 0 &&
+             data.category is string &&
+             data.date is string &&
+             data.description is string;
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -128,6 +149,11 @@ service cloud.firestore {
     match /settings/{settingId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
+    }
+
+    match /tenders/{tenderId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin() && isValidTender(request.resource.data);
     }
 
     match /{path=**} {

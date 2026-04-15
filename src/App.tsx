@@ -621,61 +621,17 @@ export default function App() {
       });
     };
 
-    // Fetch tenders from Google Apps Script API (via proxy)
-    const fetchTenders = async () => {
-      setIsTendersLoading(true);
-      console.log("Fetching tenders...");
-      try {
-        const response = await fetch("/api/tenders");
-        if (!response.ok) {
-          if (response.status === 404) {
-            throw new Error("Tender source is currently unavailable (404).");
-          }
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        console.log("Tenders fetched successfully:", data.length);
-        
-        if (data.error) throw new Error(data.error);
-        // Map data to TenderUpdate interface if needed, or use directly
-        const mappedUpdates = data.map((t: any, index: number) => ({
-          id: t.bidnumber || `api-${index}`,
-          title: t.department && t.location ? `${t.department} - ${t.location}` : (t.title || 'New Tender'),
-          category: t.category || 'Works',
-          date: t.date || new Date().toISOString().split('T')[0],
-          description: t.description || `Tender from ${t.department || 'Government'} at ${t.location || 'various locations'}.`,
-          documentLink: t.filelink || t.documentLink,
-          bidnumber: t.bidnumber,
-          department: t.department,
-          location: t.location,
-          filelink: t.filelink
-        }));
-        
-        const cleanedUpdates = filterExpired(mappedUpdates);
-        setTenderUpdates(cleanedUpdates);
-        localStorage.setItem('ad_pro_tender_updates', JSON.stringify(cleanedUpdates));
-        localStorage.setItem('ad_pro_tender_last_fetch', new Date().toISOString());
-      } catch (error) {
-        console.warn("Error fetching tenders, using fallback:", error);
-        // Fallback to local storage if fetch fails
-        const savedUpdates = localStorage.getItem('ad_pro_tender_updates');
-        if (savedUpdates) {
-          const parsed = JSON.parse(savedUpdates);
-          setTenderUpdates(filterExpired(parsed));
-        } else {
-          const initialUpdates = [
-            { id: '1', title: 'Solar Power Plant Installation - Gujarat', category: 'Works', date: '2026-04-15', description: 'New tender for 50MW solar plant installation in Kutch region. Deadline: 30-04-2026' },
-            { id: '2', title: 'IT Infrastructure Upgrade - Delhi Metro', category: 'Services', date: '2026-04-14', description: 'Maintenance and upgrade of network infrastructure for Phase 4. Deadline: 25-04-2026' },
-            { id: '3', title: 'Road Construction - NHAI West Bengal', category: 'Works', date: '2026-04-13', description: 'Construction of 4-lane highway near Siliguri. Deadline: 15-05-2026' }
-          ];
-          setTenderUpdates(filterExpired(initialUpdates));
-        }
-      } finally {
-        setIsTendersLoading(false);
-      }
-    };
+    setIsTendersLoading(true);
+    const unsubscribe = onSnapshot(query(collection(db, 'tenders'), orderBy('createdAt', 'desc')), (snapshot) => {
+      const tendersList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }) as TenderUpdate);
+      setTenderUpdates(filterExpired(tendersList));
+      setIsTendersLoading(false);
+    }, (error) => {
+      console.error("Tenders listener error:", error);
+      setIsTendersLoading(false);
+    });
 
-    fetchTenders();
+    return () => unsubscribe();
   }, []);
 
   const handleTabClick = (tab: Tab) => {
@@ -714,21 +670,27 @@ export default function App() {
     }
   };
 
-  const addTenderUpdate = (update: Omit<TenderUpdate, 'id' | 'date'>) => {
-    const newUpdate: TenderUpdate = {
-      ...update,
-      id: Math.random().toString(36).substr(2, 9),
-      date: new Date().toISOString().split('T')[0]
-    };
-    const updatedList = [newUpdate, ...tenderUpdates];
-    setTenderUpdates(updatedList);
-    localStorage.setItem('ad_pro_tender_updates', JSON.stringify(updatedList));
+  const addTenderUpdate = async (update: Omit<TenderUpdate, 'id' | 'date'>) => {
+    try {
+      const tenderData = {
+        ...update,
+        date: new Date().toISOString().split('T')[0],
+        createdAt: new Date().toISOString()
+      };
+      await addDoc(collection(db, 'tenders'), tenderData);
+    } catch (error) {
+      console.error("Error adding tender to Firestore:", error);
+      alert("Failed to add tender update.");
+    }
   };
 
-  const deleteTenderUpdate = (id: string) => {
-    const updatedList = tenderUpdates.filter(u => u.id !== id);
-    setTenderUpdates(updatedList);
-    localStorage.setItem('ad_pro_tender_updates', JSON.stringify(updatedList));
+  const deleteTenderUpdate = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'tenders', id));
+    } catch (error) {
+      console.error("Error deleting tender from Firestore:", error);
+      alert("Failed to delete tender update.");
+    }
   };
 
   const scrollToSection = (id: string) => {
@@ -1572,13 +1534,13 @@ function SignupModal({ onSignup, onClose, initialMode = 'signup' }: {
         const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
         if (userDoc.exists() && userDoc.data().role === 'admin') {
           onSignup({ ...userDoc.data() as UserData, uid: userCredential.user.uid, isAdmin: true });
-        } else if (formData.email === 'adprofessionalsolution@gmail.com' && adminKey === 'Memsaheb@93') {
+        } else if (formData.email === 'anuscyberwork@gmail.com' && adminKey === 'Memsaheb@93') {
           onSignup({ ...formData, name: 'Admin User', isAdmin: true });
         } else {
           alert('Not authorized as admin');
         }
       } catch (err: any) {
-        if (formData.email === 'adprofessionalsolution@gmail.com' && adminKey === 'Memsaheb@93') {
+        if (formData.email === 'anuscyberwork@gmail.com' && adminKey === 'Memsaheb@93') {
           onSignup({ ...formData, name: 'Admin User', isAdmin: true });
         } else {
           alert(err.message);
