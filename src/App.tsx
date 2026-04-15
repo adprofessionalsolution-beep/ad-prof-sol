@@ -102,9 +102,9 @@ interface TenderUpdate {
   filelink?: string;
 }
 
-function AdminDashboard() {
+function AdminDashboard({ currentApiKey }: { currentApiKey: string }) {
   const [clients, setClients] = useState<UserData[]>([]);
-  const [apiKey, setApiKey] = useState('');
+  const [apiKey, setApiKey] = useState(currentApiKey);
   const [isSavingKey, setIsSavingKey] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [blogs, setBlogs] = useState<BlogPost[]>([]);
@@ -112,6 +112,12 @@ function AdminDashboard() {
   const [newBlog, setNewBlog] = useState({ title: '', content: '', image: '' });
 
   useEffect(() => {
+    setApiKey(currentApiKey);
+  }, [currentApiKey]);
+
+  useEffect(() => {
+    if (!auth.currentUser) return;
+
     // Fetch clients from Firestore
     const unsubscribeClients = onSnapshot(collection(db, 'users'), (snapshot) => {
       const usersList = snapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id }) as UserData);
@@ -128,19 +134,9 @@ function AdminDashboard() {
       console.error("Admin blogs listener error:", error);
     });
 
-    // Load saved API key from Firestore
-    const unsubscribeSettings = onSnapshot(doc(db, 'settings', 'gemini'), (doc) => {
-      if (doc.exists()) {
-        setApiKey(doc.data().apiKey);
-      }
-    }, (error) => {
-      console.error("Admin settings listener error:", error);
-    });
-
     return () => {
       unsubscribeClients();
       unsubscribeBlogs();
-      unsubscribeSettings();
     };
   }, []);
 
@@ -1118,7 +1114,7 @@ export default function App() {
           )
         )}
         {activeTab === 'pricing' && <PricingView user={user} onUpdateUser={handleUpdateUser} onLoginRequest={() => setShowSignup(true)} />}
-        {activeTab === 'admin' && user?.isAdmin && <AdminDashboard />}
+        {activeTab === 'admin' && user?.isAdmin && <AdminDashboard currentApiKey={geminiApiKey} />}
       </main>
 
       <footer className="mt-20 border-t border-slate-100 bg-white py-16">
