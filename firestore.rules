@@ -67,9 +67,7 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() &&
         (request.auth.token.email == "adprofessionalsolution@gmail.com" ||
-         request.auth.token.email == "anuscyberwork@gmail.com" ||
-         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
+         request.auth.token.email == "anuscyberwork@gmail.com");
     }
 
     function isValidEmail(email) {
@@ -97,12 +95,10 @@ service cloud.firestore {
     }
 
     function isValidBlog(data) {
-      return hasOnlyAllowedFields(['title', 'content', 'author', 'date', 'image', 'createdAt']) &&
-             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
-             data.content is string && data.content.size() > 0 && data.content.size() < 50000 &&
-             data.author is string && data.author.size() > 0 &&
-             data.date is string &&
-             (!('image' in data) || data.image is string);
+      return data.title is string && data.title.size() > 0 &&
+             data.content is string && data.content.size() > 0 &&
+             data.author is string &&
+             data.date is string;
     }
 
     function isValidInquiry(data) {
@@ -114,8 +110,7 @@ service cloud.firestore {
     }
 
     function isValidTender(data) {
-      return hasOnlyAllowedFields(['title', 'category', 'date', 'description', 'bidnumber', 'department', 'location', 'filelink', 'createdAt']) &&
-             data.title is string && data.title.size() > 0 &&
+      return data.title is string && data.title.size() > 0 &&
              data.category is string &&
              data.date is string &&
              data.description is string;

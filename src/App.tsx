@@ -67,7 +67,70 @@ interface BlogPost {
 
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot, collection, query, orderBy, addDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { 
+  doc, 
+  getDoc, 
+  setDoc, 
+  onSnapshot, 
+  collection, 
+  query, 
+  orderBy, 
+  addDoc, 
+  serverTimestamp, 
+  deleteDoc,
+  getDocFromServer
+} from 'firebase/firestore';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error Details:', JSON.stringify(errInfo, null, 2));
+  alert(`Database Error (${operationType} on ${path}): ${errInfo.error}. Please check your permissions.`);
+}
 
 interface UserData {
   uid?: string;
@@ -116,7 +179,11 @@ function AdminDashboard({ currentApiKey }: { currentApiKey: string }) {
   }, [currentApiKey]);
 
   useEffect(() => {
-    if (!auth.currentUser) return;
+    if (!auth.currentUser) {
+      console.log("AdminDashboard: No user logged in, skipping listeners.");
+      return;
+    }
+    console.log("AdminDashboard: Starting listeners for admin:", auth.currentUser.email);
 
     // Fetch clients from Firestore
     const unsubscribeClients = onSnapshot(collection(db, 'users'), (snapshot) => {
@@ -124,6 +191,7 @@ function AdminDashboard({ currentApiKey }: { currentApiKey: string }) {
       setClients(usersList.filter(u => u.role !== 'admin'));
     }, (error) => {
       console.error("Admin clients listener error:", error);
+      handleFirestoreError(error, OperationType.LIST, 'users');
     });
 
     // Fetch blogs from Firestore
@@ -132,6 +200,7 @@ function AdminDashboard({ currentApiKey }: { currentApiKey: string }) {
       setBlogs(blogsList);
     }, (error) => {
       console.error("Admin blogs listener error:", error);
+      handleFirestoreError(error, OperationType.LIST, 'blogs');
     });
 
     return () => {
@@ -156,6 +225,7 @@ function AdminDashboard({ currentApiKey }: { currentApiKey: string }) {
 
   const handleAddBlog = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Attempting to add blog post...");
     try {
       const blogData = {
         title: newBlog.title,
@@ -165,12 +235,18 @@ function AdminDashboard({ currentApiKey }: { currentApiKey: string }) {
         author: 'Admin',
         createdAt: new Date().toISOString()
       };
-      await addDoc(collection(db, 'blogs'), blogData);
+      console.log("Blog data to save:", blogData);
+      console.log("Current user:", auth.currentUser?.email, "UID:", auth.currentUser?.uid);
+      
+      const docRef = await addDoc(collection(db, 'blogs'), blogData);
+      console.log("Blog post added with ID:", docRef.id);
+      
       setNewBlog({ title: '', content: '', image: '' });
       setShowBlogForm(false);
+      alert("Blog post published successfully!");
     } catch (error: any) {
       console.error("Error adding blog:", error);
-      alert(`Failed to add blog post: ${error.message || 'Unknown error'}`);
+      handleFirestoreError(error, OperationType.CREATE, 'blogs');
     }
   };
 
@@ -539,6 +615,7 @@ function BlogView() {
   );
 }
 
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -674,18 +751,20 @@ export default function App() {
         createdAt: new Date().toISOString()
       };
       await addDoc(collection(db, 'tenders'), tenderData);
-    } catch (error) {
+      alert("Tender update added successfully!");
+    } catch (error: any) {
       console.error("Error adding tender to Firestore:", error);
-      alert("Failed to add tender update.");
+      handleFirestoreError(error, OperationType.CREATE, 'tenders');
     }
   };
 
   const deleteTenderUpdate = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'tenders', id));
-    } catch (error) {
+      alert("Tender update deleted successfully!");
+    } catch (error: any) {
       console.error("Error deleting tender from Firestore:", error);
-      alert("Failed to delete tender update.");
+      handleFirestoreError(error, OperationType.DELETE, 'tenders');
     }
   };
 
