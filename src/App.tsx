@@ -1863,83 +1863,8 @@ function TenderUpdateView({ user, updates, onAddUpdate, onDeleteUpdate, isLoadin
       </AnimatePresence>
 
       <div className="grid gap-8 lg:grid-cols-3">
-        {/* Subscription Column */}
-        <div className="lg:col-span-1">
-          <div className="sticky top-24 space-y-6">
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="mb-4 text-lg font-bold text-slate-900">Subscription Settings</h3>
-              {!isSubscribed ? (
-                <form onSubmit={handleSubscribe} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">Keywords</label>
-                    <input 
-                      type="text" 
-                      value={keywords}
-                      onChange={(e) => setKeywords(e.target.value)}
-                      placeholder="Solar, IT, etc."
-                      className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm focus:border-sea-green focus:ring-sea-green"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">Category</label>
-                    <select 
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                      className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm focus:border-sea-green focus:ring-sea-green"
-                    >
-                      <option value="All">All Categories</option>
-                      <option value="Goods">Goods</option>
-                      <option value="Services">Services</option>
-                      <option value="Works">Works</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">Location</label>
-                    <select 
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm focus:border-sea-green focus:ring-sea-green"
-                    >
-                      <option value="All">All Locations</option>
-                      {districts.map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                  </div>
-                  <button 
-                    type="submit"
-                    disabled={isLoading}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-sea-green py-3 text-sm font-bold text-white shadow-lg transition-all hover:bg-sea-green-dark disabled:opacity-50"
-                  >
-                    {isLoading ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle2 size={18} />}
-                    {isLoading ? 'Activating...' : 'Activate Updates'}
-                  </button>
-                </form>
-              ) : (
-                <div className="text-center py-4">
-                  <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-sea-green text-white">
-                    <CheckCircle2 size={20} />
-                  </div>
-                  <p className="text-sm font-bold text-slate-900">Updates Active</p>
-                  <button onClick={() => setIsSubscribed(false)} className="mt-2 text-[10px] font-bold text-sea-green hover:underline">Change Settings</button>
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-2xl bg-sea-green p-6 text-white shadow-lg">
-              <MessageCircle className="mb-4" size={24} />
-              <h4 className="font-bold">WhatsApp Support</h4>
-              <p className="mt-2 text-xs text-sea-green-light/90">Chat directly with our tender experts for custom requirements.</p>
-              <button 
-                onClick={openWhatsApp}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-white py-2.5 text-xs font-bold text-sea-green transition-all hover:bg-sea-green-light"
-              >
-                Chat Now
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Updates Column */}
-        <div className="lg:col-span-2 space-y-6">
+        {/* Updates Column - Now first on mobile */}
+        <div className="order-1 lg:order-2 lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-bold text-slate-900">Latest Tender Updates</h3>
             <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
@@ -2036,6 +1961,81 @@ function TenderUpdateView({ user, updates, onAddUpdate, onDeleteUpdate, isLoadin
                 <p className="text-sm text-slate-500">Try changing your category filter.</p>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Subscription Column - Now second on mobile */}
+        <div className="order-2 lg:order-1 lg:col-span-1">
+          <div className="lg:sticky lg:top-24 space-y-6">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h3 className="mb-4 text-lg font-bold text-slate-900">Subscription Settings</h3>
+              {!isSubscribed ? (
+                <form onSubmit={handleSubscribe} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">Keywords</label>
+                    <input 
+                      type="text" 
+                      value={keywords}
+                      onChange={(e) => setKeywords(e.target.value)}
+                      placeholder="Solar, IT, etc."
+                      className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm focus:border-sea-green focus:ring-sea-green"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">Category</label>
+                    <select 
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm focus:border-sea-green focus:ring-sea-green"
+                    >
+                      <option value="All">All Categories</option>
+                      <option value="Goods">Goods</option>
+                      <option value="Services">Services</option>
+                      <option value="Works">Works</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">Location</label>
+                    <select 
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm focus:border-sea-green focus:ring-sea-green"
+                    >
+                      <option value="All">All Locations</option>
+                      {districts.map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </div>
+                  <button 
+                    type="submit"
+                    disabled={isLoading}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-sea-green py-3 text-sm font-bold text-white shadow-lg transition-all hover:bg-sea-green-dark disabled:opacity-50"
+                  >
+                    {isLoading ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle2 size={18} />}
+                    {isLoading ? 'Activating...' : 'Activate Updates'}
+                  </button>
+                </form>
+              ) : (
+                <div className="text-center py-4">
+                  <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-sea-green text-white">
+                    <CheckCircle2 size={20} />
+                  </div>
+                  <p className="text-sm font-bold text-slate-900">Updates Active</p>
+                  <button onClick={() => setIsSubscribed(false)} className="mt-2 text-[10px] font-bold text-sea-green hover:underline">Change Settings</button>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl bg-sea-green p-6 text-white shadow-lg">
+              <MessageCircle className="mb-4" size={24} />
+              <h4 className="font-bold">WhatsApp Support</h4>
+              <p className="mt-2 text-xs text-sea-green-light/90">Chat directly with our tender experts for custom requirements.</p>
+              <button 
+                onClick={openWhatsApp}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-white py-2.5 text-xs font-bold text-sea-green transition-all hover:bg-sea-green-light"
+              >
+                Chat Now
+              </button>
+            </div>
           </div>
         </div>
       </div>
