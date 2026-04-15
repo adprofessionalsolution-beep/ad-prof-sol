@@ -497,6 +497,7 @@ export default function App() {
   const [isBidDocsOpen, setIsBidDocsOpen] = useState(false);
   const [user, setUser] = useState<UserData | null>(null);
   const [showSignup, setShowSignup] = useState(false);
+  const [signupMode, setSignupMode] = useState<'signup' | 'login' | 'admin'>('signup');
   const [showContact, setShowContact] = useState(false);
   const [tenderUpdates, setTenderUpdates] = useState<TenderUpdate[]>([]);
   const [isTendersLoading, setIsTendersLoading] = useState(true);
@@ -506,6 +507,22 @@ export default function App() {
     if (savedUser) {
       setUser(JSON.parse(savedUser));
     }
+
+    const now = new Date();
+    const datePattern = /(\d{2})-(\d{2})-(\d{4})/;
+
+    const filterExpired = (updates: TenderUpdate[]) => {
+      return updates.filter(u => {
+        const match = u.title.match(datePattern) || u.description.match(datePattern);
+        if (match) {
+          const [_, day, month, year] = match;
+          const expiryDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+          expiryDate.setHours(23, 59, 59, 999);
+          return now <= expiryDate;
+        }
+        return true;
+      });
+    };
 
     // Fetch tenders from Google Apps Script API (via proxy)
     const fetchTenders = async () => {
@@ -529,20 +546,22 @@ export default function App() {
           filelink: t.filelink
         }));
         
-        setTenderUpdates(mappedUpdates);
-        localStorage.setItem('ad_pro_tender_updates', JSON.stringify(mappedUpdates));
+        const cleanedUpdates = filterExpired(mappedUpdates);
+        setTenderUpdates(cleanedUpdates);
+        localStorage.setItem('ad_pro_tender_updates', JSON.stringify(cleanedUpdates));
       } catch (error) {
         console.error("Error fetching tenders:", error);
         // Fallback to local storage if fetch fails
         const savedUpdates = localStorage.getItem('ad_pro_tender_updates');
         if (savedUpdates) {
-          setTenderUpdates(JSON.parse(savedUpdates));
+          const parsed = JSON.parse(savedUpdates);
+          setTenderUpdates(filterExpired(parsed));
         } else {
           const initialUpdates = [
             { id: '1', title: 'Solar Power Plant Installation - Gujarat', category: 'Works', date: '2026-03-20', description: 'New tender for 50MW solar plant installation in Kutch region.' },
             { id: '2', title: 'IT Infrastructure Upgrade - Delhi Metro', category: 'Services', date: '2026-03-19', description: 'Maintenance and upgrade of network infrastructure for Phase 4.' }
           ];
-          setTenderUpdates(initialUpdates);
+          setTenderUpdates(filterExpired(initialUpdates));
         }
       } finally {
         setIsTendersLoading(false);
@@ -554,6 +573,7 @@ export default function App() {
 
   const handleTabClick = (tab: Tab) => {
     if (!user && tab !== 'home' && tab !== 'pricing' && tab !== 'tender-update' && tab !== 'blog') {
+      setSignupMode('signup');
       setShowSignup(true);
     } else {
       setActiveTab(tab);
@@ -594,6 +614,12 @@ export default function App() {
     localStorage.setItem('ad_pro_tender_updates', JSON.stringify(updatedList));
   };
 
+  const deleteTenderUpdate = (id: string) => {
+    const updatedList = tenderUpdates.filter(u => u.id !== id);
+    setTenderUpdates(updatedList);
+    localStorage.setItem('ad_pro_tender_updates', JSON.stringify(updatedList));
+  };
+
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
     if (element) {
@@ -618,7 +644,11 @@ export default function App() {
 
       <AnimatePresence>
         {showSignup && (
-          <SignupModal onSignup={handleSignup} onClose={() => setShowSignup(false)} />
+          <SignupModal 
+            onSignup={handleSignup} 
+            onClose={() => setShowSignup(false)} 
+            initialMode={signupMode}
+          />
         )}
         {showContact && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
@@ -740,14 +770,7 @@ export default function App() {
                 Admin
               </button>
             )}
-            <button 
-              onClick={() => handleTabClick('pricing')}
-              className="rounded-xl bg-sea-green px-6 py-2.5 text-sm font-black uppercase tracking-widest text-white shadow-lg transition-all hover:bg-opacity-90 hover:shadow-sea-green/20 active:scale-95"
-            >
-              Get Started
-            </button>
-
-            {user && (
+            {user ? (
               <div className="flex items-center gap-3 border-l border-slate-100 pl-6">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sea-green-light text-sea-green font-bold">
                   {user.name.charAt(0).toUpperCase()}
@@ -762,6 +785,27 @@ export default function App() {
                   title="Logout"
                 >
                   <LogOut size={16} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-4 border-l border-slate-100 pl-6">
+                <button 
+                  onClick={() => {
+                    setSignupMode('login');
+                    setShowSignup(true);
+                  }}
+                  className="text-sm font-bold uppercase tracking-wider text-slate-600 transition-colors hover:text-sea-green"
+                >
+                  Sign In
+                </button>
+                <button 
+                  onClick={() => {
+                    setSignupMode('signup');
+                    setShowSignup(true);
+                  }}
+                  className="rounded-xl bg-sea-green px-6 py-2.5 text-sm font-black uppercase tracking-widest text-white shadow-lg transition-all hover:bg-opacity-90 hover:shadow-sea-green/20 active:scale-95"
+                >
+                  Sign Up
                 </button>
               </div>
             )}
@@ -822,29 +866,44 @@ export default function App() {
                 >
                   Contact Us
                 </button>
-                {user?.isAdmin && (
-                  <button onClick={() => { handleTabClick('admin'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Admin</button>
-                )}
-                <button onClick={() => { handleTabClick('pricing'); setIsMenuOpen(false); }} className="mt-2 rounded-xl bg-sea-green py-4 text-center font-black uppercase tracking-widest text-white shadow-lg">Get Started</button>
-                
-                {user && (
-                  <div className="mt-4 flex items-center justify-between rounded-2xl bg-sea-green-light p-4">
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sea-green text-white font-bold text-xl">
-                        {user.name.charAt(0).toUpperCase()}
+                {user ? (
+                  <>
+                    {user.isAdmin && (
+                      <button onClick={() => { handleTabClick('admin'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Admin</button>
+                    )}
+                    <div className="mt-4 flex items-center justify-between rounded-2xl bg-sea-green-light p-4">
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sea-green text-white font-bold text-xl">
+                          {user.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900">{user.name}</p>
+                          <p className="text-xs text-slate-500">{user.email}</p>
+                          <p className="text-[10px] text-sea-green font-medium mt-1">{user.whatsapp}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-bold text-slate-900">{user.name}</p>
-                        <p className="text-xs text-slate-500">{user.email}</p>
-                        <p className="text-[10px] text-sea-green font-medium mt-1">{user.whatsapp}</p>
-                      </div>
+                      <button 
+                        onClick={() => { handleLogout(); setIsMenuOpen(false); }}
+                        className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-red-500 shadow-sm hover:bg-red-50 transition-colors"
+                        title="Logout"
+                      >
+                        <LogOut size={20} />
+                      </button>
                     </div>
+                  </>
+                ) : (
+                  <div className="mt-4 flex flex-col gap-3">
                     <button 
-                      onClick={handleLogout}
-                      className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-red-500 shadow-sm hover:bg-red-50 transition-colors"
-                      title="Logout"
+                      onClick={() => { setSignupMode('login'); setShowSignup(true); setIsMenuOpen(false); }}
+                      className="rounded-xl border border-slate-200 py-4 text-center font-bold uppercase tracking-widest text-slate-600"
                     >
-                      <LogOut size={20} />
+                      Sign In
+                    </button>
+                    <button 
+                      onClick={() => { setSignupMode('signup'); setShowSignup(true); setIsMenuOpen(false); }}
+                      className="rounded-xl bg-sea-green py-4 text-center font-black uppercase tracking-widest text-white shadow-lg"
+                    >
+                      Sign Up
                     </button>
                   </div>
                 )}
@@ -885,6 +944,7 @@ export default function App() {
             user={user} 
             updates={tenderUpdates} 
             onAddUpdate={addTenderUpdate} 
+            onDeleteUpdate={deleteTenderUpdate}
             isLoadingTenders={isTendersLoading}
           />
         )}
@@ -1248,9 +1308,13 @@ function ContactModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function SignupModal({ onSignup, onClose }: { onSignup: (data: UserData) => void, onClose: () => void }) {
-  const [isAdminMode, setIsAdminMode] = useState(false);
-  const [isLoginMode, setIsLoginMode] = useState(false);
+function SignupModal({ onSignup, onClose, initialMode = 'signup' }: { 
+  onSignup: (data: UserData) => void, 
+  onClose: () => void,
+  initialMode?: 'signup' | 'login' | 'admin'
+}) {
+  const [isAdminMode, setIsAdminMode] = useState(initialMode === 'admin');
+  const [isLoginMode, setIsLoginMode] = useState(initialMode === 'login');
   const [isForgotMode, setIsForgotMode] = useState(false);
   const [resetStep, setResetStep] = useState(1); // 1: Email, 2: Code & New Password
   const [resetCode, setResetCode] = useState('');
@@ -1613,10 +1677,11 @@ function SignupModal({ onSignup, onClose }: { onSignup: (data: UserData) => void
   );
 }
 
-function TenderUpdateView({ user, updates, onAddUpdate, isLoadingTenders }: { 
+function TenderUpdateView({ user, updates, onAddUpdate, onDeleteUpdate, isLoadingTenders }: { 
   user: UserData | null, 
   updates: TenderUpdate[], 
   onAddUpdate: (update: Omit<TenderUpdate, 'id' | 'date'>) => void,
+  onDeleteUpdate: (id: string) => void,
   isLoadingTenders: boolean
 }) {
   const [keywords, setKeywords] = useState('');
@@ -1666,13 +1731,29 @@ function TenderUpdateView({ user, updates, onAddUpdate, isLoadingTenders }: {
     const keywordMatch = !keywords || 
       u.title.toLowerCase().includes(keywords.toLowerCase()) || 
       u.description.toLowerCase().includes(keywords.toLowerCase());
-    return categoryMatch && locationMatch && keywordMatch;
+    
+    // Auto-delete (hide) logic: check for date in title or description (DD-MM-YYYY)
+    const datePattern = /(\d{2})-(\d{2})-(\d{4})/;
+    const titleMatch = u.title.match(datePattern);
+    const descMatch = u.description.match(datePattern);
+    const match = titleMatch || descMatch;
+    
+    let isExpired = false;
+    if (match) {
+      const [_, day, month, year] = match;
+      const expiryDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      expiryDate.setHours(23, 59, 59, 999);
+      isExpired = new Date() > expiryDate;
+    }
+
+    return categoryMatch && locationMatch && keywordMatch && !isExpired;
   });
 
   const maskBidId = (text: string) => {
     if (!text) return text;
     // Matches patterns like GEM/2024/B/1234567 or GEM/2026/B/1234567
-    return text.replace(/GEM\/\d{4}\/[A-Z]\/\d+/g, "GEM/2026/B/XXXXXXX");
+    // Improved regex to handle variations and ensure it catches the ID
+    return text.replace(/GEM\/\d{4}\/[A-Z]\/\d+/gi, "GEM/2026/B/XXXXXXX");
   };
 
   const isUserLoggedIn = !!user && !!user.email;
@@ -1907,7 +1988,7 @@ function TenderUpdateView({ user, updates, onAddUpdate, isLoadingTenders }: {
                       {isUserLoggedIn ? update.title : maskBidId(update.title)}
                     </h4>
                     <p className="mt-2 text-sm text-slate-500 leading-relaxed">
-                      {update.description}
+                      {isUserLoggedIn ? update.description : maskBidId(update.description)}
                     </p>
                     {update.documentLink && (
                       isUserLoggedIn ? (
@@ -1927,9 +2008,23 @@ function TenderUpdateView({ user, updates, onAddUpdate, isLoadingTenders }: {
                       )
                     )}
                   </div>
-                  <button className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-400 transition-all hover:bg-sea-green hover:text-white">
-                    <ChevronRight size={20} />
-                  </button>
+                  <div className="flex flex-col gap-2">
+                    {user?.isAdmin && (
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteUpdate(update.id);
+                        }}
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-400 transition-all hover:bg-red-500 hover:text-white"
+                        title="Delete Tender"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    )}
+                    <button className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-400 transition-all hover:bg-sea-green hover:text-white">
+                      <ChevronRight size={20} />
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             )) : (
