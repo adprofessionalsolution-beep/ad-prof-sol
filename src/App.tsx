@@ -565,7 +565,7 @@ export default function App() {
         const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
         if (userDoc.exists()) {
           const userData = userDoc.data() as UserData;
-          setUser({ ...userData, uid: firebaseUser.uid, isAdmin: userData.role === 'admin' || firebaseUser.email === 'anuscyberwork@gmail.com' });
+          setUser({ ...userData, uid: firebaseUser.uid, isAdmin: userData.role === 'admin' || firebaseUser.email === 'adprofessionalsolution@gmail.com' });
         } else {
           // If user exists in Auth but not in Firestore (shouldn't happen with our flow but good to handle)
           setUser({ 
@@ -575,7 +575,7 @@ export default function App() {
             whatsapp: '',
             plan: 'Free Plan',
             status: 'active',
-            isAdmin: firebaseUser.email === 'anuscyberwork@gmail.com'
+            isAdmin: firebaseUser.email === 'adprofessionalsolution@gmail.com'
           });
         }
 
@@ -1534,13 +1534,13 @@ function SignupModal({ onSignup, onClose, initialMode = 'signup' }: {
         const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
         if (userDoc.exists() && userDoc.data().role === 'admin') {
           onSignup({ ...userDoc.data() as UserData, uid: userCredential.user.uid, isAdmin: true });
-        } else if (formData.email === 'anuscyberwork@gmail.com' && adminKey === 'Memsaheb@93') {
+        } else if (formData.email === 'adprofessionalsolution@gmail.com' && adminKey === 'Memsaheb@93') {
           onSignup({ ...formData, name: 'Admin User', isAdmin: true });
         } else {
           alert('Not authorized as admin');
         }
       } catch (err: any) {
-        if (formData.email === 'anuscyberwork@gmail.com' && adminKey === 'Memsaheb@93') {
+        if (formData.email === 'adprofessionalsolution@gmail.com' && adminKey === 'Memsaheb@93') {
           onSignup({ ...formData, name: 'Admin User', isAdmin: true });
         } else {
           alert(err.message);
