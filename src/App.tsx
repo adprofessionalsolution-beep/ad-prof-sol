@@ -65,7 +65,12 @@ interface BlogPost {
   image?: string;
 }
 
+import { auth, db } from './firebase';
+import { onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc, setDoc, onSnapshot, collection, query, orderBy, addDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
+
 interface UserData {
+  uid?: string;
   name: string;
   email: string;
   whatsapp: string;
@@ -75,6 +80,13 @@ interface UserData {
   status?: 'active' | 'cancelled';
   subscriptionEnd?: string;
   registrationDate?: string;
+  role?: 'user' | 'admin';
+  tenderSubscription?: {
+    keywords: string;
+    category: string;
+    location: string;
+    subscribedAt: string;
+  };
 }
 
 interface TenderUpdate {
@@ -100,73 +112,102 @@ function AdminDashboard() {
   const [newBlog, setNewBlog] = useState({ title: '', content: '', image: '' });
 
   useEffect(() => {
-    const users = JSON.parse(localStorage.getItem('ad_pro_users') || '[]');
-    setClients(users.filter((u: UserData) => !u.isAdmin));
-    
-    // Load saved API key
-    const savedKey = localStorage.getItem('ad_pro_gemini_key');
-    if (savedKey) setApiKey(savedKey);
+    // Fetch clients from Firestore
+    const unsubscribeClients = onSnapshot(collection(db, 'users'), (snapshot) => {
+      const usersList = snapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id }) as UserData);
+      setClients(usersList.filter(u => u.role !== 'admin'));
+    });
 
-    // Load blogs
-    const savedBlogs = JSON.parse(localStorage.getItem('ad_pro_blogs') || '[]');
-    setBlogs(savedBlogs);
+    // Fetch blogs from Firestore
+    const unsubscribeBlogs = onSnapshot(query(collection(db, 'blogs'), orderBy('createdAt', 'desc')), (snapshot) => {
+      const blogsList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }) as BlogPost);
+      setBlogs(blogsList);
+    });
+
+    // Load saved API key from Firestore
+    const unsubscribeSettings = onSnapshot(doc(db, 'settings', 'gemini'), (doc) => {
+      if (doc.exists()) {
+        setApiKey(doc.data().apiKey);
+      }
+    });
+
+    return () => {
+      unsubscribeClients();
+      unsubscribeBlogs();
+      unsubscribeSettings();
+    };
   }, []);
 
-  const handleSaveApiKey = () => {
+  const handleSaveApiKey = async () => {
     setIsSavingKey(true);
-    localStorage.setItem('ad_pro_gemini_key', apiKey);
-    setTimeout(() => {
-      setIsSavingKey(false);
+    try {
+      await setDoc(doc(db, 'settings', 'gemini'), { apiKey }, { merge: true });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-    }, 800);
+    } catch (error) {
+      console.error("Error saving API key:", error);
+      alert("Failed to save API key.");
+    } finally {
+      setIsSavingKey(false);
+    }
   };
 
-  const handleAddBlog = (e: React.FormEvent) => {
+  const handleAddBlog = async (e: React.FormEvent) => {
     e.preventDefault();
-    const blog: BlogPost = {
-      id: Math.random().toString(36).substr(2, 9),
-      title: newBlog.title,
-      content: newBlog.content,
-      image: newBlog.image,
-      date: new Date().toLocaleDateString(),
-      author: 'Admin'
-    };
-    const updatedBlogs = [blog, ...blogs];
-    setBlogs(updatedBlogs);
-    localStorage.setItem('ad_pro_blogs', JSON.stringify(updatedBlogs));
-    setNewBlog({ title: '', content: '', image: '' });
-    setShowBlogForm(false);
+    try {
+      const blogData = {
+        title: newBlog.title,
+        content: newBlog.content,
+        image: newBlog.image,
+        date: new Date().toLocaleDateString(),
+        author: 'Admin',
+        createdAt: new Date().toISOString()
+      };
+      await addDoc(collection(db, 'blogs'), blogData);
+      setNewBlog({ title: '', content: '', image: '' });
+      setShowBlogForm(false);
+    } catch (error) {
+      console.error("Error adding blog:", error);
+      alert("Failed to add blog post.");
+    }
   };
 
-  const deleteBlog = (id: string) => {
-    const updatedBlogs = blogs.filter(b => b.id !== id);
-    setBlogs(updatedBlogs);
-    localStorage.setItem('ad_pro_blogs', JSON.stringify(updatedBlogs));
-  };
-
-  const handleStatusChange = (email: string, action: 'cancel' | 'extend' | 'changePlan', newPlan?: string) => {
-    const allUsers = JSON.parse(localStorage.getItem('ad_pro_users') || '[]');
-    const updatedUsers = allUsers.map((u: UserData) => {
-      if (u.email === email) {
-        if (action === 'cancel') {
-          return { ...u, status: 'cancelled', plan: 'Free Plan' };
-        } else if (action === 'extend') {
-          const currentEnd = u.subscriptionEnd ? new Date(u.subscriptionEnd) : new Date();
-          const daysToAdd = u.plan === 'Yearly Plan' ? 365 : 30;
-          const newEnd = new Date(currentEnd.getTime() + daysToAdd * 24 * 60 * 60 * 1000).toISOString();
-          return { ...u, status: 'active', subscriptionEnd: newEnd };
-        } else if (action === 'changePlan' && newPlan) {
-          const regDate = u.registrationDate ? new Date(u.registrationDate) : new Date();
-          const daysToAdd = newPlan === 'Yearly Plan' ? 365 : 30;
-          const newEnd = new Date(regDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000).toISOString();
-          return { ...u, status: 'active', plan: newPlan, subscriptionEnd: newEnd };
-        }
+  const deleteBlog = async (id: string) => {
+    if (window.confirm("Are you sure you want to delete this blog post?")) {
+      try {
+        await deleteDoc(doc(db, 'blogs', id));
+      } catch (error) {
+        console.error("Error deleting blog:", error);
+        alert("Failed to delete blog post.");
       }
-      return u;
-    });
-    localStorage.setItem('ad_pro_users', JSON.stringify(updatedUsers));
-    setClients(updatedUsers.filter((u: UserData) => !u.isAdmin));
+    }
+  };
+
+  const handleStatusChange = async (uid: string, action: 'cancel' | 'extend' | 'changePlan', newPlan?: string) => {
+    const userToUpdate = clients.find(u => u.uid === uid);
+    if (!userToUpdate) return;
+
+    let updatedData: Partial<UserData> = {};
+    if (action === 'cancel') {
+      updatedData = { status: 'cancelled', plan: 'Free Plan' };
+    } else if (action === 'extend') {
+      const currentEnd = userToUpdate.subscriptionEnd ? new Date(userToUpdate.subscriptionEnd) : new Date();
+      const daysToAdd = userToUpdate.plan === 'Yearly Plan' ? 365 : 30;
+      const newEnd = new Date(currentEnd.getTime() + daysToAdd * 24 * 60 * 60 * 1000).toISOString();
+      updatedData = { status: 'active', subscriptionEnd: newEnd };
+    } else if (action === 'changePlan' && newPlan) {
+      const regDate = userToUpdate.registrationDate ? new Date(userToUpdate.registrationDate) : new Date();
+      const daysToAdd = newPlan === 'Yearly Plan' ? 365 : 30;
+      const newEnd = new Date(regDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000).toISOString();
+      updatedData = { status: 'active', plan: newPlan, subscriptionEnd: newEnd };
+    }
+
+    try {
+      await setDoc(doc(db, 'users', uid), updatedData, { merge: true });
+    } catch (error) {
+      console.error("Error updating user status:", error);
+      alert("Failed to update user status.");
+    }
   };
 
   return (
@@ -295,7 +336,7 @@ function AdminDashboard() {
                   <td colSpan={6} className="px-6 py-8 text-center text-slate-500">No clients found.</td>
                 </tr>
               ) : clients.map((client) => (
-                <tr key={client.email} className="hover:bg-slate-50">
+                <tr key={client.uid} className="hover:bg-slate-50">
                   <td className="px-6 py-4">
                     <div className="font-medium text-slate-900">{client.name}</div>
                     <div className="text-xs text-slate-500">{client.email}</div>
@@ -321,7 +362,7 @@ function AdminDashboard() {
                     <div className="flex flex-col items-end gap-2 sm:flex-row sm:justify-end">
                       <select 
                         className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-sea-green"
-                        onChange={(e) => handleStatusChange(client.email, 'changePlan', e.target.value)}
+                        onChange={(e) => handleStatusChange(client.uid!, 'changePlan', e.target.value)}
                         value={client.plan || 'Free Plan'}
                       >
                         <option value="Free Plan">Free Plan</option>
@@ -329,13 +370,13 @@ function AdminDashboard() {
                         <option value="Yearly Plan">Yearly Plan</option>
                       </select>
                       <button
-                        onClick={() => handleStatusChange(client.email, 'extend')}
+                        onClick={() => handleStatusChange(client.uid!, 'extend')}
                         className="rounded-lg bg-sea-green px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-600"
                       >
                         Extend Plan
                       </button>
                       <button
-                        onClick={() => handleStatusChange(client.email, 'cancel')}
+                        onClick={() => handleStatusChange(client.uid!, 'cancel')}
                         className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-100"
                       >
                         Cancel
@@ -389,8 +430,11 @@ function BlogView() {
   const [selectedBlog, setSelectedBlog] = useState<BlogPost | null>(null);
 
   useEffect(() => {
-    const savedBlogs = JSON.parse(localStorage.getItem('ad_pro_blogs') || '[]');
-    setBlogs(savedBlogs);
+    const unsubscribe = onSnapshot(query(collection(db, 'blogs'), orderBy('createdAt', 'desc')), (snapshot) => {
+      const blogsList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }) as BlogPost);
+      setBlogs(blogsList);
+    });
+    return () => unsubscribe();
   }, []);
 
   if (selectedBlog) {
@@ -412,14 +456,14 @@ function BlogView() {
               referrerPolicy="no-referrer"
             />
           )}
-          <div className="p-8 md:p-12">
+          <div className="p-6 md:p-12">
             <div className="flex items-center gap-4 text-xs font-bold text-slate-400 uppercase tracking-widest">
               <span>{selectedBlog.date}</span>
               <span className="h-1 w-1 rounded-full bg-slate-300"></span>
               <span>By {selectedBlog.author}</span>
             </div>
-            <h1 className="mt-4 text-3xl font-black text-slate-900 md:text-5xl">{selectedBlog.title}</h1>
-            <div className="mt-8 whitespace-pre-wrap text-lg leading-relaxed text-slate-600">
+            <h1 className="mt-4 text-2xl font-black text-slate-900 md:text-5xl">{selectedBlog.title}</h1>
+            <div className="mt-8 whitespace-pre-wrap text-base sm:text-lg leading-relaxed text-slate-600">
               {selectedBlog.content}
             </div>
           </div>
@@ -496,18 +540,52 @@ export default function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isBidDocsOpen, setIsBidDocsOpen] = useState(false);
   const [user, setUser] = useState<UserData | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
   const [signupMode, setSignupMode] = useState<'signup' | 'login' | 'admin'>('signup');
   const [showContact, setShowContact] = useState(false);
   const [tenderUpdates, setTenderUpdates] = useState<TenderUpdate[]>([]);
   const [isTendersLoading, setIsTendersLoading] = useState(true);
+  const [geminiApiKey, setGeminiApiKey] = useState('');
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('ad_pro_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
+    // Fetch Gemini API key from Firestore
+    const unsubscribeSettings = onSnapshot(doc(db, 'settings', 'gemini'), (doc) => {
+      if (doc.exists()) {
+        setGeminiApiKey(doc.data().apiKey);
+      }
+    });
 
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // Get user data from Firestore
+        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data() as UserData;
+          setUser({ ...userData, uid: firebaseUser.uid, isAdmin: userData.role === 'admin' });
+        } else {
+          // If user exists in Auth but not in Firestore (shouldn't happen with our flow but good to handle)
+          setUser({ 
+            uid: firebaseUser.uid, 
+            email: firebaseUser.email || '', 
+            name: firebaseUser.displayName || 'User',
+            whatsapp: '',
+            plan: 'Free Plan',
+            status: 'active'
+          });
+        }
+      } else {
+        setUser(null);
+      }
+      setIsAuthReady(true);
+    });
+
+    return () => {
+      unsubscribeSettings();
+      unsubscribeAuth();
+    };
+  }, []);
+  useEffect(() => {
     const now = new Date();
     const datePattern = /(\d{2})-(\d{2})-(\d{4})/;
 
@@ -585,26 +663,29 @@ export default function App() {
   };
 
   const handleSignup = (data: UserData) => {
-    localStorage.setItem('ad_pro_user', JSON.stringify(data));
     setUser(data);
     setShowSignup(false);
   };
 
-  const handleUpdateUser = (updatedData: UserData) => {
-    localStorage.setItem('ad_pro_user', JSON.stringify(updatedData));
+  const handleUpdateUser = async (updatedData: UserData) => {
     setUser(updatedData);
-    
-    // Also update in the users list
-    const users = JSON.parse(localStorage.getItem('ad_pro_users') || '[]');
-    const updatedUsers = users.map((u: UserData) => u.email === updatedData.email ? updatedData : u);
-    localStorage.setItem('ad_pro_users', JSON.stringify(updatedUsers));
+    if (updatedData.uid) {
+      try {
+        await setDoc(doc(db, 'users', updatedData.uid), updatedData, { merge: true });
+      } catch (error) {
+        console.error("Error updating user in Firestore:", error);
+      }
+    }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('ad_pro_user');
-    setUser(null);
-    setShowSignup(true);
-    setIsMenuOpen(false);
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setUser(null);
+      setActiveTab('home');
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
   };
 
   const addTenderUpdate = (update: Omit<TenderUpdate, 'id' | 'date'>) => {
@@ -631,6 +712,17 @@ export default function App() {
     }
     setIsMenuOpen(false);
   };
+
+  if (!isAuthReady) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-white">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-12 w-12 animate-spin text-sea-green" />
+          <p className="font-bold text-slate-600">Loading ADPS...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white font-sans text-slate-900 overflow-x-hidden">
@@ -969,7 +1061,7 @@ export default function App() {
         {activeTab === 'home' && <HomeView onServiceClick={(tab) => handleTabClick(tab)} />}
         {activeTab === 'analyzer' && (
           user?.isAdmin || user?.plan === 'Pro Monthly' || user?.plan === 'Yearly Plan' ? (
-            <AnalyzerView />
+            <AnalyzerView user={user} apiKey={geminiApiKey} />
           ) : (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <Lock size={48} className="mb-4 text-slate-300" />
@@ -981,7 +1073,7 @@ export default function App() {
         )}
         {activeTab === 'rate-analyzer' && (
           user?.isAdmin || user?.plan === 'Pro Monthly' || user?.plan === 'Yearly Plan' ? (
-            <BidRateAnalyzerView />
+            <BidRateAnalyzerView apiKey={geminiApiKey} />
           ) : (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <Lock size={48} className="mb-4 text-slate-300" />
@@ -1153,7 +1245,7 @@ function HomeView({ onServiceClick }: { onServiceClick: (tab: Tab) => void }) {
   return (
     <div className="space-y-20">
       {/* Hero Section */}
-      <section className="relative overflow-hidden rounded-3xl bg-sea-green-dark px-8 py-20 text-white">
+      <section className="relative overflow-hidden rounded-3xl bg-sea-green-dark px-6 py-12 sm:px-8 sm:py-20 text-white">
         <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-sea-green/20 blur-3xl"></div>
         <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-sea-green/20 blur-3xl"></div>
         
@@ -1161,7 +1253,7 @@ function HomeView({ onServiceClick }: { onServiceClick: (tab: Tab) => void }) {
           <motion.h1 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-4xl font-extrabold tracking-tight sm:text-6xl"
+            className="text-3xl font-extrabold tracking-tight sm:text-6xl"
           >
             Empowering Your Business in <span className="text-sea-green-light">Government Tendering</span>
           </motion.h1>
@@ -1169,7 +1261,7 @@ function HomeView({ onServiceClick }: { onServiceClick: (tab: Tab) => void }) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="mt-6 text-lg text-sea-green-light/80"
+            className="mt-6 text-base sm:text-lg text-sea-green-light/80"
           >
             Expert GeM Portal services, AI-powered bid analysis, and professional consultation to help you win more government contracts.
           </motion.p>
@@ -1181,13 +1273,13 @@ function HomeView({ onServiceClick }: { onServiceClick: (tab: Tab) => void }) {
           >
             <button 
               onClick={() => onServiceClick('pricing')}
-              className="rounded-full bg-white px-8 py-4 font-bold text-sea-green-dark shadow-xl transition-all hover:scale-105 active:scale-95"
+              className="w-full sm:w-auto rounded-full bg-white px-8 py-4 font-bold text-sea-green-dark shadow-xl transition-all hover:scale-105 active:scale-95"
             >
               View Subscription Plans
             </button>
             <button 
               onClick={() => onServiceClick('analyzer')}
-              className="rounded-full border border-sea-green/40 bg-sea-green-dark/50 px-8 py-4 font-bold text-white backdrop-blur-sm transition-all hover:bg-sea-green active:scale-95"
+              className="w-full sm:w-auto rounded-full border border-sea-green/40 bg-sea-green-dark/50 px-8 py-4 font-bold text-white backdrop-blur-sm transition-all hover:bg-sea-green active:scale-95"
             >
               Try AI Bid Analyzer
             </button>
@@ -1331,7 +1423,7 @@ function ContactModal({ onClose }: { onClose: () => void }) {
         <h2 className="text-2xl font-black tracking-tight">Contact Us</h2>
       </div>
 
-      <div className="w-full h-[600px] bg-slate-50 relative">
+      <div className="w-full h-[500px] sm:h-[600px] bg-slate-50 relative">
         <iframe 
           src="https://docs.google.com/forms/d/e/1FAIpQLSddX0yFMdWoAVS2maMCEj4usU5s9cTKfqwAGx7352tfdn-9qg/viewform?embedded=true" 
           width="100%" 
@@ -1344,14 +1436,14 @@ function ContactModal({ onClose }: { onClose: () => void }) {
           Loading…
         </iframe>
         
-        <div className="absolute bottom-6 left-0 right-0 flex justify-center px-6">
+        <div className="absolute bottom-6 left-0 right-0 flex justify-center px-4 sm:px-6">
           <a 
             href="https://wa.me/message/44V2N2KT67HMO1" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="flex items-center gap-3 rounded-full bg-[#25D366] px-8 py-4 font-bold text-white shadow-xl transition-all hover:scale-105 active:scale-95"
+            className="flex items-center gap-2 sm:gap-3 rounded-full bg-[#25D366] px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base font-bold text-white shadow-xl transition-all hover:scale-105 active:scale-95"
           >
-            <MessageCircle size={24} fill="currentColor" />
+            <MessageCircle size={20} fill="currentColor" />
             Chat with us on WhatsApp
           </a>
         </div>
@@ -1448,41 +1540,38 @@ function SignupModal({ onSignup, onClose, initialMode = 'signup' }: {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isAdminMode) {
-      if (formData.email === 'adprofessionalsolution@gmail.com' && adminKey === 'Memsaheb@93') {
-        onSignup({ ...formData, name: 'Admin User', isAdmin: true });
-      } else {
-        alert('Invalid Admin Credentials');
+      setIsLoading(true);
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password || '');
+        const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
+        if (userDoc.exists() && userDoc.data().role === 'admin') {
+          onSignup({ ...userDoc.data() as UserData, uid: userCredential.user.uid, isAdmin: true });
+        } else if (formData.email === 'adprofessionalsolution@gmail.com' && adminKey === 'Memsaheb@93') {
+          onSignup({ ...formData, name: 'Admin User', isAdmin: true });
+        } else {
+          alert('Not authorized as admin');
+        }
+      } catch (err: any) {
+        if (formData.email === 'adprofessionalsolution@gmail.com' && adminKey === 'Memsaheb@93') {
+          onSignup({ ...formData, name: 'Admin User', isAdmin: true });
+        } else {
+          alert(err.message);
+        }
+      } finally {
+        setIsLoading(false);
       }
     } else if (isLoginMode) {
       setIsLoading(true);
       try {
-        const response = await fetch('/api/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: formData.email, password: formData.password })
-        });
-        const data = await response.json();
-        if (data.success) {
-          onSignup(data.user);
+        const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password || '');
+        const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
+        if (userDoc.exists()) {
+          onSignup({ ...userDoc.data() as UserData, uid: userCredential.user.uid });
         } else {
-          // Fallback to local storage if backend login fails (for existing local users)
-          const users = JSON.parse(localStorage.getItem('ad_pro_users') || '[]');
-          const user = users.find((u: UserData) => u.email === formData.email && u.password === formData.password);
-          if (user) {
-            onSignup(user);
-          } else {
-            alert(data.error || 'Invalid email or password');
-          }
+          onSignup({ uid: userCredential.user.uid, email: userCredential.user.email || '', name: userCredential.user.displayName || 'User', whatsapp: '', plan: 'Free Plan', status: 'active' });
         }
-      } catch (err) {
-        // Fallback to local storage on connection error
-        const users = JSON.parse(localStorage.getItem('ad_pro_users') || '[]');
-        const user = users.find((u: UserData) => u.email === formData.email && u.password === formData.password);
-        if (user) {
-          onSignup(user);
-        } else {
-          alert('Error connecting to server. Please check your connection.');
-        }
+      } catch (err: any) {
+        alert(err.message);
       } finally {
         setIsLoading(false);
       }
@@ -1490,27 +1579,36 @@ function SignupModal({ onSignup, onClose, initialMode = 'signup' }: {
       if (formData.name && formData.email && formData.whatsapp && formData.password) {
         setIsLoading(true);
         try {
-          await fetch('/api/signup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(formData)
-          });
-        } catch (err) {
-          console.error('Error sending signup email', err);
+          const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+          const userData = {
+            uid: userCredential.user.uid,
+            name: formData.name,
+            email: formData.email,
+            whatsapp: formData.whatsapp,
+            plan: formData.plan || 'Free Plan',
+            status: formData.status || 'active',
+            expiresAt: formData.subscriptionEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            createdAt: new Date().toISOString(),
+            role: 'user'
+          };
+          await setDoc(doc(db, 'users', userCredential.user.uid), userData);
+          
+          try {
+            await fetch('/api/signup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(formData)
+            });
+          } catch (err) {
+            console.error('Error sending signup email', err);
+          }
+
+          onSignup(userData as any);
+        } catch (err: any) {
+          alert(err.message);
         } finally {
           setIsLoading(false);
         }
-        
-        const users = JSON.parse(localStorage.getItem('ad_pro_users') || '[]');
-        // Prevent duplicate emails
-        if (users.some((u: UserData) => u.email === formData.email)) {
-          alert('User with this email already exists. Please login.');
-          return;
-        }
-        users.push(formData);
-        localStorage.setItem('ad_pro_users', JSON.stringify(users));
-        
-        onSignup(formData);
       }
     }
   };
@@ -1778,13 +1876,37 @@ function TenderUpdateView({ user, updates, onAddUpdate, onDeleteUpdate, isLoadin
     "Uttar Dinajpur"
   ];
 
-  const handleSubscribe = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+  useEffect(() => {
+    if (user?.tenderSubscription) {
+      setKeywords(user.tenderSubscription.keywords || '');
+      setCategory(user.tenderSubscription.category || 'All');
+      setLocation(user.tenderSubscription.location || 'All');
       setIsSubscribed(true);
-    }, 1500);
+    }
+  }, [user]);
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) {
+      alert("Please login to subscribe to updates.");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const subscriptionData = {
+        keywords,
+        category,
+        location,
+        subscribedAt: new Date().toISOString()
+      };
+      await setDoc(doc(db, 'users', user.uid!), { tenderSubscription: subscriptionData }, { merge: true });
+      setIsSubscribed(true);
+    } catch (error) {
+      console.error("Error subscribing:", error);
+      alert("Failed to save subscription settings.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleAdminSubmit = (e: React.FormEvent) => {
@@ -2120,7 +2242,7 @@ function TenderUpdateView({ user, updates, onAddUpdate, onDeleteUpdate, isLoadin
   );
 }
 
-function AnalyzerView() {
+function AnalyzerView({ user, apiKey }: { user: UserData | null, apiKey: string }) {
   const [file, setFile] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<any | null>(null);
@@ -2204,8 +2326,21 @@ function AnalyzerView() {
 
     try {
       const text = await extractTextFromPDF(file);
-      const analysis = await analyzeBidDocument(text);
+      const analysis = await analyzeBidDocument(text, apiKey);
       setResult(analysis);
+      
+      // Save analysis to Firestore if user is logged in
+      if (user?.uid) {
+        try {
+          await addDoc(collection(db, 'users', user.uid, 'analyses'), {
+            fileName: file.name,
+            timestamp: new Date().toISOString(),
+            result: analysis
+          });
+        } catch (fsErr) {
+          console.error("Error saving analysis to Firestore:", fsErr);
+        }
+      }
     } catch (err: any) {
       console.error(err);
       if (err.message && err.message.includes('429')) {
@@ -2225,7 +2360,7 @@ function AnalyzerView() {
         <p className="mt-2 text-slate-500">Upload your tender or bid PDF to instantly identify required documents and compliance points.</p>
       </div>
 
-      <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-white p-12 text-center transition-colors hover:border-sea-green/30">
+      <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-white p-6 sm:p-12 text-center transition-colors hover:border-sea-green/30">
         <input 
           type="file" 
           ref={fileInputRef}
@@ -2325,9 +2460,9 @@ function AnalyzerView() {
           </div>
 
           {/* Detailed Analysis */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-            <div className="mb-6 flex items-center justify-between border-b border-slate-100 pb-4">
-              <h3 className="text-xl font-bold text-slate-900">Analysis Result</h3>
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm">
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+              <h3 className="text-lg sm:text-xl font-bold text-slate-900">Analysis Result</h3>
               <button 
                 onClick={handleExportPDF}
                 disabled={isExporting}
@@ -2390,7 +2525,7 @@ function AnalyzerView() {
   );
 }
 
-function BidRateAnalyzerView() {
+function BidRateAnalyzerView({ apiKey }: { apiKey: string }) {
   const [scopeOfWork, setScopeOfWork] = useState('');
   const [estimatedValue, setEstimatedValue] = useState('');
   const [materialCost, setMaterialCost] = useState('');
@@ -2476,7 +2611,8 @@ function BidRateAnalyzerView() {
         laborCost,
         profitMargin,
         competitionLevel,
-        projectDuration
+        projectDuration,
+        apiKey
       );
       setResult(analysis);
     } catch (err: any) {
@@ -3063,13 +3199,13 @@ function PricingView({ user, onUpdateUser, onLoginRequest }: { user: UserData | 
         <p className="mt-4 text-slate-500">Choose the plan that fits your business needs.</p>
       </div>
 
-      <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-3">
+      <div className="mx-auto grid max-w-7xl gap-6 md:gap-8 md:grid-cols-3">
         {plans.map((plan, i) => (
           <div 
             key={i}
             className={cn(
-              "relative flex flex-col rounded-3xl border p-8 transition-all",
-              plan.popular ? "border-sea-green bg-white shadow-2xl scale-105 z-10" : "border-slate-200 bg-white shadow-sm"
+              "relative flex flex-col rounded-3xl border p-6 sm:p-8 transition-all",
+              plan.popular ? "border-sea-green bg-white shadow-2xl md:scale-105 z-10" : "border-slate-200 bg-white shadow-sm"
             )}
           >
             {plan.popular && (
@@ -3167,11 +3303,11 @@ function PricingView({ user, onUpdateUser, onLoginRequest }: { user: UserData | 
                 </button>
                 {hasInitiatedPayment && (
                   <button 
-                    onClick={() => {
+                    onClick={async () => {
                       const regDate = user!.registrationDate ? new Date(user!.registrationDate) : new Date();
                       const daysToAdd = selectedPlan.name === 'Yearly Plan' ? 365 : 30;
                       const newEnd = new Date(regDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000).toISOString();
-                      onUpdateUser({ ...user!, plan: selectedPlan.name, subscriptionEnd: newEnd });
+                      await onUpdateUser({ ...user!, plan: selectedPlan.name, subscriptionEnd: newEnd });
                       setSelectedPlan(null);
                       setHasInitiatedPayment(false);
                       alert(`Successfully subscribed to ${selectedPlan.name}!`);

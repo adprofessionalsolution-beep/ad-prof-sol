@@ -12,9 +12,10 @@ export const analyzeBidRate = async (
   laborCost: string,
   profitMargin: string,
   competitionLevel: string,
-  projectDuration: string
+  projectDuration: string,
+  providedApiKey?: string
 ) => {
-  const apiKey = getApiKey();
+  const apiKey = providedApiKey || getApiKey();
   if (!apiKey) {
     throw new Error("Gemini API key is missing. Please add it in the Admin Dashboard or contact support.");
   }
@@ -96,8 +97,8 @@ export const analyzeBidRate = async (
   }
 };
 
-export const analyzeBidDocument = async (text: string) => {
-  const apiKey = getApiKey();
+export const analyzeBidDocument = async (text: string, providedApiKey?: string) => {
+  const apiKey = providedApiKey || getApiKey();
   if (!apiKey) {
     throw new Error("Gemini API key is missing. Please add it in the Admin Dashboard or contact support.");
   }

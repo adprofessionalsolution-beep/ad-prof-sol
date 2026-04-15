@@ -92,12 +92,21 @@ async function startServer() {
   app.get("/api/tenders", async (req, res) => {
     try {
       const response = await axios.get("https://script.google.com/macros/s/AKfycbwjErpA7hK38Pqa-v7iINy9LdXXtJPtO5ZX2yxLn2mDoZ6Yfwv-WlRUX5mKnZzrJVC-/exec", {
-        maxRedirects: 5
+        maxRedirects: 5,
+        timeout: 10000 // 10 seconds timeout
       });
       res.json(response.data);
     } catch (error: any) {
       console.error("Error proxying tenders:", error.message);
-      res.status(500).json({ error: "Failed to fetch tenders from source" });
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error("Source responded with:", error.response.status);
+        if (error.response.status === 404) {
+          return res.json([]); // Return empty array if source is not found
+        }
+      }
+      res.status(500).json({ error: "Failed to fetch tenders from source", details: error.message });
     }
   });
 
