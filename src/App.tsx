@@ -160,7 +160,7 @@ function AdminDashboard({ currentApiKey }: { currentApiKey: string }) {
       const blogData = {
         title: newBlog.title,
         content: newBlog.content,
-        image: newBlog.image,
+        image: newBlog.image || '',
         date: new Date().toLocaleDateString(),
         author: 'Admin',
         createdAt: new Date().toISOString()
@@ -168,9 +168,9 @@ function AdminDashboard({ currentApiKey }: { currentApiKey: string }) {
       await addDoc(collection(db, 'blogs'), blogData);
       setNewBlog({ title: '', content: '', image: '' });
       setShowBlogForm(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding blog:", error);
-      alert("Failed to add blog post.");
+      alert(`Failed to add blog post: ${error.message || 'Unknown error'}`);
     }
   };
 
