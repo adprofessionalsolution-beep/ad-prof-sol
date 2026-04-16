@@ -1,41 +1,43 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // CRITICAL: Emergency override for admin emails
-    function isSuperAdmin() {
-      return request.auth != null && 
-             request.auth.token.email != null && 
-             (request.auth.token.email.lower() == "adprofessionalsolution@gmail.com" || 
-              request.auth.token.email.lower() == "anuscyberwork@gmail.com");
+    function isAdmin() {
+      return isAuthenticated() && (
+        (request.auth.token.email != null && 
+         request.auth.token.email.lower() in ["adprofessionalsolution@gmail.com", "anuscyberwork@gmail.com"]) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+        request.auth.uid in ["INSERT_UID_HERE"] // Placeholder if needed later
+      );
     }
 
     match /users/{userId} {
-      allow read, write: if isSuperAdmin() || (request.auth != null && request.auth.uid == userId);
+      allow read, write: if isAdmin() || (request.auth != null && request.auth.uid == userId);
     }
 
     match /blogs/{blogId} {
       allow read: if true;
-      allow write: if isSuperAdmin();
+      allow write: if isAdmin();
     }
 
     match /tenders/{tenderId} {
       allow read: if true;
-      allow write: if isSuperAdmin();
+      allow write: if isAdmin();
     }
 
     match /inquiries/{inquiryId} {
-      allow read: if isSuperAdmin();
+      allow read: if isAdmin();
       allow create: if true;
-      allow update, delete: if isSuperAdmin();
+      allow update, delete: if isAdmin();
     }
 
     match /settings/{settingId} {
       allow read: if request.auth != null;
-      allow write: if isSuperAdmin();
+      allow write: if isAdmin();
     }
 
     match /{path=**} {
-      allow read, write: if isSuperAdmin();
+      allow read, write: if isAdmin();
     }
   }
 }

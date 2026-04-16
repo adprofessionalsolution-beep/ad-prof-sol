@@ -247,8 +247,10 @@ function AdminDashboard({ currentApiKey, user }: { currentApiKey: string, user: 
     } catch (error: any) {
       console.error("Error adding blog:", error);
       const isPermissionError = error.message?.includes("permissions") || error.code === "permission-denied";
+      const uEmail = user?.email || auth.currentUser?.email || 'Unknown';
+      const uUid = user?.uid || auth.currentUser?.uid || 'Unknown';
       const errorDetail = isPermissionError ? 
-        `Permission Denied for ${auth.currentUser?.email || 'Unknown User'}. Check the Debug Panel in Admin Dashboard.` : 
+        `Permission Denied for ${uEmail}. UID: ${uUid}. Please click 'Fix My Permissions' in Admin Dashboard.` : 
         error.message;
       alert(`Error publishing blog: ${errorDetail}`);
       handleFirestoreError(error, OperationType.CREATE, 'blogs');
@@ -293,6 +295,20 @@ function AdminDashboard({ currentApiKey, user }: { currentApiKey: string, user: 
     }
   };
 
+  const handleFixPermissions = async () => {
+    if (!user?.uid) {
+      alert("Cannot fix: No user ID found.");
+      return;
+    }
+    try {
+      await setDoc(doc(db, 'users', user.uid), { role: 'admin' }, { merge: true });
+      alert("Admin permissions forced in database. Please refresh the page and try again.");
+    } catch (error) {
+      console.error("Error fixing permissions:", error);
+      alert("Failed to force admin role: " + (error instanceof Error ? error.message : String(error)));
+    }
+  };
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
       <div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
@@ -304,6 +320,12 @@ function AdminDashboard({ currentApiKey, user }: { currentApiKey: string, user: 
             <p className="text-xs font-mono text-slate-600">UID: {user?.uid}</p>
             <p className="text-xs font-mono text-slate-600">Email: {user?.email}</p>
             <p className="text-xs font-mono text-slate-600">Admin Flag: {user?.isAdmin ? 'TRUE' : 'FALSE'}</p>
+            <button 
+              onClick={handleFixPermissions}
+              className="mt-3 w-full rounded-lg bg-red-50 py-2 text-[10px] font-bold uppercase tracking-widest text-red-600 hover:bg-red-100 transition-colors"
+            >
+              Fix My Permissions
+            </button>
           </div>
         </div>
 
