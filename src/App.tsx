@@ -744,13 +744,20 @@ export default function App() {
   };
 
   const addTenderUpdate = async (update: Omit<TenderUpdate, 'id' | 'date'>) => {
+    console.log("addTenderUpdate: Attempting to save tender update...");
+    console.log("Current Auth User:", auth.currentUser?.email, "Verify Status:", auth.currentUser?.emailVerified);
+    console.log("Current App User State:", user?.email, "Role:", user?.role);
+    
     try {
       const tenderData = {
         ...update,
         date: new Date().toISOString().split('T')[0],
         createdAt: new Date().toISOString()
       };
-      await addDoc(collection(db, 'tenders'), tenderData);
+      console.log("Saving data:", tenderData);
+      
+      const docRef = await addDoc(collection(db, 'tenders'), tenderData);
+      console.log("Tender added with ID:", docRef.id);
       alert("Tender update added successfully!");
     } catch (error: any) {
       console.error("Error adding tender to Firestore:", error);
