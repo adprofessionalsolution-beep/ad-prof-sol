@@ -1,163 +1,41 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    //
-    // Collection: users
-    // Document ID: {uid}
-    // Fields:
-    //   - uid: string (required)
-    //   - name: string (required)
-    //   - email: string (required, email format)
-    //   - whatsapp: string
-    //   - plan: string (required, enum)
-    //   - status: string (required, enum)
-    //   - expiresAt: string (ISO 8601)
-    //   - createdAt: string (ISO 8601)
-    //   - role: string (enum)
-    //
-    // Collection: blogs
-    // Document ID: {blogId}
-    // Fields:
-    //   - title: string (required)
-    //   - content: string (required)
-    //   - author: string (required)
-    //   - date: string (required)
-    //   - image: string
-    //   - createdAt: string (ISO 8601)
-    //
-    // Collection: inquiries
-    // Document ID: {inquiryId}
-    // Fields:
-    //   - name: string (required)
-    //   - email: string (required, email format)
-    //   - mobile: string (required)
-    //   - description: string (required)
-    //   - createdAt: string (ISO 8601)
-    //
-    // Collection: tenders
-    // Document ID: {tenderId}
-    // Fields:
-    //   - title: string (required)
-    //   - category: string (required)
-    //   - date: string (required)
-    //   - description: string (required)
-    //   - bidnumber: string
-    //   - department: string
-    //   - location: string
-    //   - filelink: string
-    //   - createdAt: string (ISO 8601)
-    //
-    // ===============================================================
-
-    // ===============================================================
-    // Helper Functions
-    // ===============================================================
-    
-    function isAuthenticated() {
-      return request.auth != null;
+    // CRITICAL: Emergency override for admin emails
+    function isSuperAdmin() {
+      return request.auth != null && 
+             request.auth.token.email != null && 
+             (request.auth.token.email.lower() == "adprofessionalsolution@gmail.com" || 
+              request.auth.token.email.lower() == "anuscyberwork@gmail.com");
     }
 
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-
-    function isAdmin() {
-      return isAuthenticated() && (
-        (request.auth.token.email != null && 
-         request.auth.token.email.lower() in ["adprofessionalsolution@gmail.com", "anuscyberwork@gmail.com"]) ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
-      );
-    }
-
-    function isValidEmail(email) {
-      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
-    }
-
-    function isValidDateString(dateStr) {
-      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
-    }
-
-    function hasOnlyAllowedFields(fields) {
-      return request.resource.data.keys().hasOnly(fields);
-    }
-
-    // Domain Validators
-    
-    function isValidUser(data) {
-      return hasOnlyAllowedFields(['uid', 'name', 'email', 'whatsapp', 'plan', 'status', 'expiresAt', 'createdAt', 'role', 'tenderSubscription']) &&
-             data.uid is string && data.uid.size() > 0 &&
-             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
-             isValidEmail(data.email) &&
-             data.plan in ['Free Plan', 'Pro Monthly', 'Yearly Plan'] &&
-             data.status in ['active', 'cancelled'] &&
-             (data.role == 'user' || data.role == 'admin');
-    }
-
-    function isValidBlog(data) {
-      return data.title is string && data.title.size() > 0 &&
-             data.content is string && data.content.size() > 0;
-    }
-
-    function isValidInquiry(data) {
-      return hasOnlyAllowedFields(['name', 'email', 'mobile', 'description', 'createdAt']) &&
-             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
-             isValidEmail(data.email) &&
-             data.mobile is string && data.mobile.size() >= 10 && data.mobile.size() <= 15 &&
-             data.description is string && data.description.size() > 0 && data.description.size() < 2000;
-    }
-
-    function isValidTender(data) {
-      return data.title is string && data.title.size() > 0 &&
-             data.category is string;
-    }
-
-    // ===============================================================
-    // Rules
-    // ===============================================================
-
-    match /users {
-      allow list: if isAdmin();
-      match /{userId} {
-        allow get: if isOwner(userId) || isAdmin();
-        allow create: if isAuthenticated() && isValidUser(request.resource.data) && 
-                      ((isOwner(userId) && request.resource.data.role == 'user') || isAdmin());
-        allow update: if isAuthenticated() && isValidUser(request.resource.data) && 
-                      ((isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin());
-        allow delete: if isAdmin();
-
-        match /analyses/{analysisId} {
-          allow read, write: if isOwner(userId) || isAdmin();
-        }
-      }
+    match /users/{userId} {
+      allow read, write: if isSuperAdmin() || (request.auth != null && request.auth.uid == userId);
     }
 
     match /blogs/{blogId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin();
-    }
-
-    match /inquiries/{inquiryId} {
-      allow read: if isAdmin();
-      allow create: if isValidInquiry(request.resource.data);
-      allow update, delete: if isAdmin();
-    }
-
-    match /settings/{settingId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow write: if isSuperAdmin();
     }
 
     match /tenders/{tenderId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow write: if isSuperAdmin();
+    }
+
+    match /inquiries/{inquiryId} {
+      allow read: if isSuperAdmin();
+      allow create: if true;
+      allow update, delete: if isSuperAdmin();
+    }
+
+    match /settings/{settingId} {
+      allow read: if request.auth != null;
+      allow write: if isSuperAdmin();
     }
 
     match /{path=**} {
-      allow read, write: if false;
+      allow read, write: if isSuperAdmin();
     }
   }
 }
