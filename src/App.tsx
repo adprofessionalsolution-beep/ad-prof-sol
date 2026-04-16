@@ -246,6 +246,11 @@ function AdminDashboard({ currentApiKey, user }: { currentApiKey: string, user: 
       alert("Blog post published successfully!");
     } catch (error: any) {
       console.error("Error adding blog:", error);
+      const isPermissionError = error.message?.includes("permissions") || error.code === "permission-denied";
+      const errorDetail = isPermissionError ? 
+        `Permission Denied for ${auth.currentUser?.email || 'Unknown User'}. Check the Debug Panel in Admin Dashboard.` : 
+        error.message;
+      alert(`Error publishing blog: ${errorDetail}`);
       handleFirestoreError(error, OperationType.CREATE, 'blogs');
     }
   };
@@ -771,6 +776,11 @@ export default function App() {
       alert("Tender update added successfully!");
     } catch (error: any) {
       console.error("Error adding tender to Firestore:", error);
+      const isPermissionError = error.message?.includes("permissions") || error.code === "permission-denied";
+      const errorDetail = isPermissionError ? 
+        `Permission Denied for ${auth.currentUser?.email || 'Unknown User'}. Check the Debug Panel in Admin Dashboard.` : 
+        error.message;
+      alert(`Error adding tender: ${errorDetail}`);
       handleFirestoreError(error, OperationType.CREATE, 'tenders');
     }
   };

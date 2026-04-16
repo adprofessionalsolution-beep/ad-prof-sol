@@ -66,10 +66,8 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && (
-        (request.auth.token.email != null && (
-          request.auth.token.email.lower() == "adprofessionalsolution@gmail.com" ||
-          request.auth.token.email.lower() == "anuscyberwork@gmail.com"
-        )) ||
+        (request.auth.token.email != null && 
+         request.auth.token.email.lower() in ["adprofessionalsolution@gmail.com", "anuscyberwork@gmail.com"]) ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
       );
@@ -139,7 +137,7 @@ service cloud.firestore {
 
     match /blogs/{blogId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin() && isValidBlog(request.resource.data);
+      allow create, update, delete: if isAdmin();
     }
 
     match /inquiries/{inquiryId} {
@@ -155,7 +153,7 @@ service cloud.firestore {
 
     match /tenders/{tenderId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin() && isValidTender(request.resource.data);
+      allow create, update, delete: if isAdmin();
     }
 
     match /{path=**} {
