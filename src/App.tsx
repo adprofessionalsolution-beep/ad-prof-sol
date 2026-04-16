@@ -296,16 +296,21 @@ function AdminDashboard({ currentApiKey, user }: { currentApiKey: string, user: 
   };
 
   const handleFixPermissions = async () => {
-    if (!user?.uid) {
-      alert("Cannot fix: No user ID found.");
+    const targetUid = user?.uid || auth.currentUser?.uid;
+    if (!targetUid) {
+      alert("Cannot fix: No authenticated user ID found. Please try logging out and in again.");
       return;
     }
     try {
-      await setDoc(doc(db, 'users', user.uid), { role: 'admin' }, { merge: true });
-      alert("Admin permissions forced in database. Please refresh the page and try again.");
-    } catch (error) {
+      await setDoc(doc(db, 'users', targetUid), { 
+        role: 'admin',
+        email: user?.email || auth.currentUser?.email,
+        name: user?.name || auth.currentUser?.displayName || 'Admin'
+      }, { merge: true });
+      alert("Admin permissions forced in database for UID: " + targetUid + ". Please refresh the page.");
+    } catch (error: any) {
       console.error("Error fixing permissions:", error);
-      alert("Failed to force admin role: " + (error instanceof Error ? error.message : String(error)));
+      alert(`Failed to force admin role: ${error.message}. Error code: ${error.code}`);
     }
   };
 
@@ -317,8 +322,9 @@ function AdminDashboard({ currentApiKey, user }: { currentApiKey: string, user: 
           <p className="mt-2 text-slate-600">Manage client subscriptions, system settings, and blogs.</p>
           <div className="mt-4 p-4 rounded-xl bg-slate-100 border border-slate-200">
             <p className="text-[10px] uppercase font-bold text-slate-400">Current Session (Debug)</p>
-            <p className="text-xs font-mono text-slate-600">UID: {user?.uid}</p>
-            <p className="text-xs font-mono text-slate-600">Email: {user?.email}</p>
+            <p className="text-xs font-mono text-slate-600">State UID: {user?.uid || 'MISSING'}</p>
+            <p className="text-xs font-mono text-slate-600">Auth UID: {auth.currentUser?.uid || 'MISSING'}</p>
+            <p className="text-xs font-mono text-slate-600">Email: {user?.email || auth.currentUser?.email || 'MISSING'}</p>
             <p className="text-xs font-mono text-slate-600">Admin Flag: {user?.isAdmin ? 'TRUE' : 'FALSE'}</p>
             <button 
               onClick={handleFixPermissions}
