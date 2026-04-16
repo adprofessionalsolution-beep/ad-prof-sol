@@ -65,10 +65,14 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isAuthenticated() &&
-        (request.auth.token.email.matches("(?i)^(adprofessionalsolution@gmail\\.com|anuscyberwork@gmail\\.com)$") ||
-         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
+      return isAuthenticated() && (
+        (request.auth.token.email != null && (
+          request.auth.token.email.lower() == "adprofessionalsolution@gmail.com" ||
+          request.auth.token.email.lower() == "anuscyberwork@gmail.com"
+        )) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
     }
 
     function isValidEmail(email) {
@@ -97,9 +101,7 @@ service cloud.firestore {
 
     function isValidBlog(data) {
       return data.title is string && data.title.size() > 0 &&
-             data.content is string && data.content.size() > 0 &&
-             data.author is string &&
-             data.date is string;
+             data.content is string && data.content.size() > 0;
     }
 
     function isValidInquiry(data) {
@@ -112,8 +114,7 @@ service cloud.firestore {
 
     function isValidTender(data) {
       return data.title is string && data.title.size() > 0 &&
-             data.category is string &&
-             data.description is string;
+             data.category is string;
     }
 
     // ===============================================================

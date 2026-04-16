@@ -165,7 +165,7 @@ interface TenderUpdate {
   filelink?: string;
 }
 
-function AdminDashboard({ currentApiKey }: { currentApiKey: string }) {
+function AdminDashboard({ currentApiKey, user }: { currentApiKey: string, user: UserData | null }) {
   const [clients, setClients] = useState<UserData[]>([]);
   const [apiKey, setApiKey] = useState(currentApiKey);
   const [isSavingKey, setIsSavingKey] = useState(false);
@@ -294,6 +294,12 @@ function AdminDashboard({ currentApiKey }: { currentApiKey: string }) {
         <div>
           <h1 className="text-3xl font-black tracking-tight text-slate-900">Admin Dashboard</h1>
           <p className="mt-2 text-slate-600">Manage client subscriptions, system settings, and blogs.</p>
+          <div className="mt-4 p-4 rounded-xl bg-slate-100 border border-slate-200">
+            <p className="text-[10px] uppercase font-bold text-slate-400">Current Session (Debug)</p>
+            <p className="text-xs font-mono text-slate-600">UID: {user?.uid}</p>
+            <p className="text-xs font-mono text-slate-600">Email: {user?.email}</p>
+            <p className="text-xs font-mono text-slate-600">Admin Flag: {user?.isAdmin ? 'TRUE' : 'FALSE'}</p>
+          </div>
         </div>
 
         <div className="flex flex-col gap-4 w-full max-w-md">
@@ -638,9 +644,13 @@ export default function App() {
         const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
         if (userDoc.exists()) {
           const userData = userDoc.data() as UserData;
-          setUser({ ...userData, uid: firebaseUser.uid, isAdmin: userData.role === 'admin' || firebaseUser.email === 'adprofessionalsolution@gmail.com' });
+          const email = firebaseUser.email?.toLowerCase() || '';
+          const isAdminEmail = email === 'adprofessionalsolution@gmail.com' || email === 'anuscyberwork@gmail.com';
+          setUser({ ...userData, uid: firebaseUser.uid, isAdmin: userData.role === 'admin' || isAdminEmail });
         } else {
           // If user exists in Auth but not in Firestore (shouldn't happen with our flow but good to handle)
+          const email = firebaseUser.email?.toLowerCase() || '';
+          const isAdminEmail = email === 'adprofessionalsolution@gmail.com' || email === 'anuscyberwork@gmail.com';
           setUser({ 
             uid: firebaseUser.uid, 
             email: firebaseUser.email || '', 
@@ -648,7 +658,7 @@ export default function App() {
             whatsapp: '',
             plan: 'Free Plan',
             status: 'active',
-            isAdmin: firebaseUser.email === 'adprofessionalsolution@gmail.com'
+            isAdmin: isAdminEmail
           });
         }
 
@@ -1200,7 +1210,7 @@ export default function App() {
           )
         )}
         {activeTab === 'pricing' && <PricingView user={user} onUpdateUser={handleUpdateUser} onLoginRequest={() => setShowSignup(true)} />}
-        {activeTab === 'admin' && user?.isAdmin && <AdminDashboard currentApiKey={geminiApiKey} />}
+        {activeTab === 'admin' && user?.isAdmin && <AdminDashboard currentApiKey={geminiApiKey} user={user} />}
       </main>
 
       <footer className="mt-20 border-t border-slate-100 bg-white py-16">
