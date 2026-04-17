@@ -1683,12 +1683,44 @@ function SignupModal({ onSignup, onClose, initialMode = 'signup' }: {
         if (userDoc.exists() && userDoc.data().role === 'admin') {
           onSignup({ ...userDoc.data() as UserData, uid: userCredential.user.uid, isAdmin: true });
         } else if ((formData.email.toLowerCase() === 'adprofessionalsolution@gmail.com' || formData.email.toLowerCase() === 'anuscyberwork@gmail.com') && adminKey === 'Memsaheb@93') {
-          onSignup({ ...formData, uid: userCredential.user.uid, name: 'Admin User', isAdmin: true });
+          // Promote to admin if super email + key, even if role not in DB yet
+          const adminData = { ...formData, uid: userCredential.user.uid, name: 'Admin User', role: 'admin' as const, isAdmin: true };
+          await setDoc(doc(db, 'users', userCredential.user.uid), adminData, { merge: true });
+          onSignup(adminData);
         } else {
           alert('Not authorized as admin. Please ensure your account has the admin role.');
         }
       } catch (err: any) {
-        alert(`Login failed: ${err.message}. If you are trying to use the Admin Key, you still need to provide your account password.`);
+        const isSuperAdminEmail = formData.email.toLowerCase() === 'adprofessionalsolution@gmail.com' || formData.email.toLowerCase() === 'anuscyberwork@gmail.com';
+        
+        if (isSuperAdminEmail && adminKey === 'Memsaheb@93') {
+          // If login failed but they are super admin with key, try creating the account
+          try {
+            const newUserCred = await createUserWithEmailAndPassword(auth, formData.email, formData.password || '');
+            const adminData = {
+              uid: newUserCred.user.uid,
+              name: 'Admin User',
+              email: formData.email,
+              whatsapp: formData.whatsapp || '',
+              plan: 'Yearly Plan',
+              status: 'active' as const,
+              role: 'admin' as const,
+              isAdmin: true,
+              createdAt: new Date().toISOString()
+            };
+            await setDoc(doc(db, 'users', newUserCred.user.uid), adminData);
+            alert("Admin account created successfully!");
+            onSignup(adminData);
+          } catch (createErr: any) {
+            if (createErr.code === 'auth/email-already-in-use') {
+              alert("Login failed: Incorrect password for this admin email. Please use the 'Forgot Password' link.");
+            } else {
+              alert(`Admin setup failed: ${createErr.message}`);
+            }
+          }
+        } else {
+          alert(`Login failed: ${err.message}. If you are trying to use the Admin Key, you still need to provide your account password.`);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -1712,6 +1744,7 @@ function SignupModal({ onSignup, onClose, initialMode = 'signup' }: {
         setIsLoading(true);
         try {
           const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+          const isSuperAdminEmail = formData.email.toLowerCase() === 'adprofessionalsolution@gmail.com' || formData.email.toLowerCase() === 'anuscyberwork@gmail.com';
           const userData = {
             uid: userCredential.user.uid,
             name: formData.name,
@@ -1721,7 +1754,7 @@ function SignupModal({ onSignup, onClose, initialMode = 'signup' }: {
             status: formData.status || 'active',
             expiresAt: formData.subscriptionEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
             createdAt: new Date().toISOString(),
-            role: 'user'
+            role: isSuperAdminEmail ? 'admin' : 'user'
           };
           await setDoc(doc(db, 'users', userCredential.user.uid), userData);
           
