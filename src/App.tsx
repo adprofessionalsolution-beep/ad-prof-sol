@@ -326,12 +326,30 @@ function AdminDashboard({ currentApiKey, user }: { currentApiKey: string, user: 
             <p className="text-xs font-mono text-slate-600">Auth UID: {auth.currentUser?.uid || 'MISSING'}</p>
             <p className="text-xs font-mono text-slate-600">Email: {user?.email || auth.currentUser?.email || 'MISSING'}</p>
             <p className="text-xs font-mono text-slate-600">Admin Flag: {user?.isAdmin ? 'TRUE' : 'FALSE'}</p>
-            <button 
-              onClick={handleFixPermissions}
-              className="mt-3 w-full rounded-lg bg-red-50 py-2 text-[10px] font-bold uppercase tracking-widest text-red-600 hover:bg-red-100 transition-colors"
-            >
-              Fix My Permissions
-            </button>
+            
+            {!auth.currentUser ? (
+              <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                <p className="text-[10px] font-bold text-amber-700 uppercase">Warning: Guest Mode</p>
+                <p className="text-[10px] text-amber-600 mt-1">You are logged in locally but not to Firebase Database. Database operations will fail.</p>
+                <button 
+                  onClick={() => {
+                    setUser(null);
+                    setSignupMode('admin');
+                    setShowSignup(true);
+                  }}
+                  className="mt-2 w-full rounded-lg bg-amber-600 py-2 text-[10px] font-bold uppercase text-white hover:bg-amber-700 transition-colors"
+                >
+                  Login to Firebase
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={handleFixPermissions}
+                className="mt-3 w-full rounded-lg bg-red-50 py-2 text-[10px] font-bold uppercase tracking-widest text-red-600 hover:bg-red-100 transition-colors"
+              >
+                Fix My Permissions
+              </button>
+            )}
           </div>
         </div>
 
@@ -1664,17 +1682,13 @@ function SignupModal({ onSignup, onClose, initialMode = 'signup' }: {
         const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
         if (userDoc.exists() && userDoc.data().role === 'admin') {
           onSignup({ ...userDoc.data() as UserData, uid: userCredential.user.uid, isAdmin: true });
-        } else if (formData.email === 'adprofessionalsolution@gmail.com' && adminKey === 'Memsaheb@93') {
-          onSignup({ ...formData, name: 'Admin User', isAdmin: true });
+        } else if ((formData.email.toLowerCase() === 'adprofessionalsolution@gmail.com' || formData.email.toLowerCase() === 'anuscyberwork@gmail.com') && adminKey === 'Memsaheb@93') {
+          onSignup({ ...formData, uid: userCredential.user.uid, name: 'Admin User', isAdmin: true });
         } else {
-          alert('Not authorized as admin');
+          alert('Not authorized as admin. Please ensure your account has the admin role.');
         }
       } catch (err: any) {
-        if (formData.email === 'adprofessionalsolution@gmail.com' && adminKey === 'Memsaheb@93') {
-          onSignup({ ...formData, name: 'Admin User', isAdmin: true });
-        } else {
-          alert(err.message);
-        }
+        alert(`Login failed: ${err.message}. If you are trying to use the Admin Key, you still need to provide your account password.`);
       } finally {
         setIsLoading(false);
       }
