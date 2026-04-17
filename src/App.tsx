@@ -235,24 +235,14 @@ function AdminDashboard({ currentApiKey, user }: { currentApiKey: string, user: 
         author: 'Admin',
         createdAt: new Date().toISOString()
       };
-      console.log("Blog data to save:", blogData);
-      console.log("Current user:", auth.currentUser?.email, "UID:", auth.currentUser?.uid);
       
-      const docRef = await addDoc(collection(db, 'blogs'), blogData);
-      console.log("Blog post added with ID:", docRef.id);
+      await addDoc(collection(db, 'blogs'), blogData);
       
       setNewBlog({ title: '', content: '', image: '' });
       setShowBlogForm(false);
       alert("Blog post published successfully!");
     } catch (error: any) {
       console.error("Error adding blog:", error);
-      const isPermissionError = error.message?.includes("permissions") || error.code === "permission-denied";
-      const uEmail = user?.email || auth.currentUser?.email || 'Unknown';
-      const uUid = user?.uid || auth.currentUser?.uid || 'Unknown';
-      const errorDetail = isPermissionError ? 
-        `Permission Denied for ${uEmail}. UID: ${uUid}. Please click 'Fix My Permissions' in Admin Dashboard.` : 
-        error.message;
-      alert(`Error publishing blog: ${errorDetail}`);
       handleFirestoreError(error, OperationType.CREATE, 'blogs');
     }
   };
@@ -295,62 +285,12 @@ function AdminDashboard({ currentApiKey, user }: { currentApiKey: string, user: 
     }
   };
 
-  const handleFixPermissions = async () => {
-    const targetUid = user?.uid || auth.currentUser?.uid;
-    if (!targetUid) {
-      alert("Cannot fix: No authenticated user ID found. Please try logging out and in again.");
-      return;
-    }
-    try {
-      await setDoc(doc(db, 'users', targetUid), { 
-        role: 'admin',
-        email: user?.email || auth.currentUser?.email,
-        name: user?.name || auth.currentUser?.displayName || 'Admin'
-      }, { merge: true });
-      alert("Admin permissions forced in database for UID: " + targetUid + ". Please refresh the page.");
-    } catch (error: any) {
-      console.error("Error fixing permissions:", error);
-      alert(`Failed to force admin role: ${error.message}. Error code: ${error.code}`);
-    }
-  };
-
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
       <div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-slate-900">Admin Dashboard</h1>
           <p className="mt-2 text-slate-600">Manage client subscriptions, system settings, and blogs.</p>
-          <div className="mt-4 p-4 rounded-xl bg-slate-100 border border-slate-200">
-            <p className="text-[10px] uppercase font-bold text-slate-400">Current Session (Debug)</p>
-            <p className="text-xs font-mono text-slate-600">State UID: {user?.uid || 'MISSING'}</p>
-            <p className="text-xs font-mono text-slate-600">Auth UID: {auth.currentUser?.uid || 'MISSING'}</p>
-            <p className="text-xs font-mono text-slate-600">Email: {user?.email || auth.currentUser?.email || 'MISSING'}</p>
-            <p className="text-xs font-mono text-slate-600">Admin Flag: {user?.isAdmin ? 'TRUE' : 'FALSE'}</p>
-            
-            {!auth.currentUser ? (
-              <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
-                <p className="text-[10px] font-bold text-amber-700 uppercase">Warning: Guest Mode</p>
-                <p className="text-[10px] text-amber-600 mt-1">You are logged in locally but not to Firebase Database. Database operations will fail.</p>
-                <button 
-                  onClick={() => {
-                    setUser(null);
-                    setSignupMode('admin');
-                    setShowSignup(true);
-                  }}
-                  className="mt-2 w-full rounded-lg bg-amber-600 py-2 text-[10px] font-bold uppercase text-white hover:bg-amber-700 transition-colors"
-                >
-                  Login to Firebase
-                </button>
-              </div>
-            ) : (
-              <button 
-                onClick={handleFixPermissions}
-                className="mt-3 w-full rounded-lg bg-red-50 py-2 text-[10px] font-bold uppercase tracking-widest text-red-600 hover:bg-red-100 transition-colors"
-              >
-                Fix My Permissions
-              </button>
-            )}
-          </div>
         </div>
 
         <div className="flex flex-col gap-4 w-full max-w-md">
@@ -805,28 +745,17 @@ export default function App() {
   };
 
   const addTenderUpdate = async (update: Omit<TenderUpdate, 'id' | 'date'>) => {
-    console.log("addTenderUpdate: Attempting to save tender update...");
-    console.log("Current Auth User:", auth.currentUser?.email, "Verify Status:", auth.currentUser?.emailVerified);
-    console.log("Current App User State:", user?.email, "Role:", user?.role);
-    
     try {
       const tenderData = {
         ...update,
         date: new Date().toISOString().split('T')[0],
         createdAt: new Date().toISOString()
       };
-      console.log("Saving data:", tenderData);
       
-      const docRef = await addDoc(collection(db, 'tenders'), tenderData);
-      console.log("Tender added with ID:", docRef.id);
+      await addDoc(collection(db, 'tenders'), tenderData);
       alert("Tender update added successfully!");
     } catch (error: any) {
       console.error("Error adding tender to Firestore:", error);
-      const isPermissionError = error.message?.includes("permissions") || error.code === "permission-denied";
-      const errorDetail = isPermissionError ? 
-        `Permission Denied for ${auth.currentUser?.email || 'Unknown User'}. Check the Debug Panel in Admin Dashboard.` : 
-        error.message;
-      alert(`Error adding tender: ${errorDetail}`);
       handleFirestoreError(error, OperationType.CREATE, 'tenders');
     }
   };
