@@ -48,6 +48,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { jsPDF } from 'jspdf';
 import * as htmlToImage from 'html-to-image';
+import * as XLSX from 'xlsx';
 import { analyzeBidDocument, analyzeBidRate } from './services/gemini';
 import { cn } from './lib/utils';
 
@@ -1961,6 +1962,13 @@ function TenderUpdateView({ user, updates, onAddUpdate, onDeleteUpdate, isLoadin
   const [showAdminForm, setShowAdminForm] = useState(false);
   const [newUpdate, setNewUpdate] = useState({ title: '', category: 'Goods', description: '', documentLink: '', location: '' });
 
+  // Bulk Upload states
+  const [uploadMode, setUploadMode] = useState<'single' | 'bulk'>('single');
+  const [bulkFile, setBulkFile] = useState<File | null>(null);
+  const [parsedData, setParsedData] = useState<any[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
   const districts = [
     "Alipurduar", "Bankura", "Birbhum", "Cooch Behar", "Dakshin Dinajpur", 
     "Darjeeling", "Hooghly", "Howrah", "Jalpaiguri", "Jhargram", 
@@ -2008,6 +2016,185 @@ function TenderUpdateView({ user, updates, onAddUpdate, onDeleteUpdate, isLoadin
     if (newUpdate.title && newUpdate.description) {
       onAddUpdate(newUpdate);
       setNewUpdate({ title: '', category: 'Goods', description: '', documentLink: '', location: '' });
+      setShowAdminForm(false);
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    const templateData = [
+      {
+        "Bid ID & Date (Title)*": "GEM/2026/B/1234567 - 30 Mar 2026",
+        "Category* (Goods/Services/Works)": "Goods",
+        "Location* (District name)": "Kolkata",
+        "Description*": "Bulk supply of fully-loaded high-end office workstation laptops",
+        "Document Link (Optional)": "https://example.com/spec1.pdf",
+        "Bid Number (Optional)": "GEM/2026/B/1234567",
+        "Department (Optional)": "Department of Higher Education"
+      },
+      {
+        "Bid ID & Date (Title)*": "GEM/2026/B/9876543 - 15 Apr 2026",
+        "Category* (Goods/Services/Works)": "Services",
+        "Location* (District name)": "Murshidabad",
+        "Description*": "Hiring of security and surveillance personnel for institutional campuses",
+        "Document Link (Optional)": "",
+        "Bid Number (Optional)": "GEM/2026/B/9876543",
+        "Department (Optional)": "Department of Health & Family Welfare"
+      }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    ws['!cols'] = Object.keys(templateData[0]).map(() => ({ wch: 25 }));
+    XLSX.writeFile(wb, "Tender_Bulk_Upload_Template.xlsx");
+  };
+
+  const processFile = (file: File) => {
+    setBulkFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        
+        const rawJson: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+        
+        const mappedData = rawJson.map((row, idx) => {
+          const normalizedRow: { [key: string]: any } = {};
+          Object.keys(row).forEach(key => {
+            normalizedRow[key.trim().toLowerCase()] = row[key];
+          });
+          
+          const findVal = (keys: string[]) => {
+            const foundKey = Object.keys(normalizedRow).find(k => keys.some(targetKey => k.includes(targetKey)));
+            return foundKey ? normalizedRow[foundKey] : '';
+          };
+
+          const title = findVal(['title', 'bid id & date', 'bid id']) || '';
+          const categoryRaw = findVal(['category', 'type']) || 'Goods';
+          const locationRaw = findVal(['location', 'district']) || '';
+          const description = findVal(['description', 'details', 'detail']) || '';
+          const documentLink = findVal(['document link', 'link', 'url']) || '';
+          const bidnumber = findVal(['bid number', 'bid_number', 'bidnumber', 'bid id']) || '';
+          const department = findVal(['department', 'dept']) || '';
+
+          let category = 'Goods';
+          const catLower = categoryRaw.toString().trim().toLowerCase();
+          if (catLower.includes('serv')) category = 'Services';
+          else if (catLower.includes('work')) category = 'Works';
+
+          const hasTitle = title.toString().trim().length > 0;
+          const hasDesc = description.toString().trim().length > 0;
+
+          return {
+            rowNum: idx + 2,
+            title: title.toString().trim(),
+            category,
+            location: locationRaw.toString().trim(),
+            description: description.toString().trim(),
+            documentLink: documentLink.toString().trim(),
+            bidnumber: bidnumber.toString().trim(),
+            department: department.toString().trim(),
+            isValid: hasTitle && hasDesc,
+            error: !hasTitle && !hasDesc 
+              ? 'Missing Title & Description' 
+              : !hasTitle 
+                ? 'Missing Title' 
+                : !hasDesc 
+                  ? 'Missing Description' 
+                  : ''
+          };
+        });
+
+        const cleanedData = mappedData.filter(item => item.title.length > 0 || item.description.length > 0);
+        setParsedData(cleanedData);
+      } catch (error) {
+        console.error("Error parsing sheet:", error);
+        alert("Failed to parse file. Please verify it's a valid Excel or CSV sheet.");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      const extension = file.name.split('.').pop()?.toLowerCase();
+      if (['xlsx', 'xls', 'csv'].includes(extension || '')) {
+        processFile(file);
+      } else {
+        alert("Unsupported file format. Please upload .xlsx, .xls, or .csv files.");
+      }
+    }
+  };
+
+  const handleDeleteRow = (index: number) => {
+    const updated = [...parsedData];
+    updated.splice(index, 1);
+    setParsedData(updated);
+  };
+
+  const handleBulkSubmit = async () => {
+    const validItems = parsedData.filter(item => item.isValid);
+    if (validItems.length === 0) {
+      alert("No valid rows to post.");
+      return;
+    }
+
+    setIsLoading(true);
+    setUploadProgress({ current: 0, total: validItems.length });
+    
+    let success = 0;
+    let fail = 0;
+
+    for (let i = 0; i < validItems.length; i++) {
+      const item = validItems[i];
+      try {
+        const tenderData = {
+          title: item.title,
+          category: item.category,
+          location: item.location,
+          description: item.description,
+          documentLink: item.documentLink || '',
+          bidnumber: item.bidnumber || '',
+          department: item.department || '',
+          date: new Date().toISOString().split('T')[0],
+          createdAt: new Date().toISOString()
+        };
+        await addDoc(collection(db, 'tenders'), tenderData);
+        success++;
+      } catch (err) {
+        console.error("Bulk add error:", err);
+        fail++;
+      }
+      setUploadProgress({ current: i + 1, total: validItems.length });
+    }
+
+    setIsLoading(false);
+    setUploadProgress(null);
+    alert(`Bulk uploads completed!\n\nSuccessful uploads: ${success}\nFailed uploads: ${fail}`);
+    
+    if (success > 0) {
+      setParsedData([]);
+      setBulkFile(null);
       setShowAdminForm(false);
     }
   };
@@ -2081,76 +2268,234 @@ function TenderUpdateView({ user, updates, onAddUpdate, onDeleteUpdate, isLoadin
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden rounded-2xl border-2 border-slate-800 bg-white p-8 shadow-xl"
+            className="overflow-hidden rounded-2xl border-2 border-slate-800 bg-white p-8 shadow-xl mb-6"
           >
-            <h3 className="mb-6 text-xl font-bold text-slate-900">Post New Tender Update (Admin Only)</h3>
-            <form onSubmit={handleAdminSubmit} className="grid gap-6 md:grid-cols-2">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700">Bid ID & Date</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={newUpdate.title}
-                    onChange={(e) => setNewUpdate({ ...newUpdate, title: e.target.value })}
-                    placeholder="e.g., GEM/2026/B/1234567 - 30 Mar 2026"
-                    className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700">Category</label>
-                  <select 
-                    value={newUpdate.category}
-                    onChange={(e) => setNewUpdate({ ...newUpdate, category: e.target.value })}
-                    className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
-                  >
-                    <option value="Goods">Goods</option>
-                    <option value="Services">Services</option>
-                    <option value="Works">Works</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700">Location</label>
-                  <select 
-                    value={newUpdate.location}
-                    onChange={(e) => setNewUpdate({ ...newUpdate, location: e.target.value })}
-                    className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
-                  >
-                    <option value="">Select Location</option>
-                    {districts.map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700">Document Link (Optional)</label>
-                  <input 
-                    type="url" 
-                    value={newUpdate.documentLink}
-                    onChange={(e) => setNewUpdate({ ...newUpdate, documentLink: e.target.value })}
-                    placeholder="https://example.com/tender-doc.pdf"
-                    className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
-                  />
-                </div>
+            <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center border-b border-slate-100 pb-5">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Tender Administration Workspace</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Post individual tender updates or load records in bulk using Excel templates.</p>
               </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700">Description</label>
-                  <textarea 
-                    required
-                    value={newUpdate.description}
-                    onChange={(e) => setNewUpdate({ ...newUpdate, description: e.target.value })}
-                    placeholder="Enter tender details..."
-                    rows={4}
-                    className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
-                  />
-                </div>
-                <button 
-                  type="submit"
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-800 py-4 font-bold text-white shadow-lg transition-all hover:bg-slate-900"
+              <div className="flex gap-2 self-start sm:self-center">
+                <button
+                  type="button"
+                  onClick={() => setUploadMode('single')}
+                  className={`rounded-lg px-4 py-2 text-xs font-bold transition-all ${uploadMode === 'single' ? 'bg-slate-800 text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}
                 >
-                  Post Update
+                  Single Post
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUploadMode('bulk')}
+                  className={`rounded-lg px-4 py-2 text-xs font-bold transition-all ${uploadMode === 'bulk' ? 'bg-slate-800 text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}
+                >
+                  Excel Bulk Upload
                 </button>
               </div>
-            </form>
+            </div>
+
+            {uploadMode === 'single' ? (
+              <form onSubmit={handleAdminSubmit} className="grid gap-6 md:grid-cols-2">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700">Bid ID & Date</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={newUpdate.title}
+                      onChange={(e) => setNewUpdate({ ...newUpdate, title: e.target.value })}
+                      placeholder="e.g., GEM/2026/B/1234567 - 30 Mar 2026"
+                      className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700">Category</label>
+                    <select 
+                      value={newUpdate.category}
+                      onChange={(e) => setNewUpdate({ ...newUpdate, category: e.target.value })}
+                      className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+                    >
+                      <option value="Goods">Goods</option>
+                      <option value="Services">Services</option>
+                      <option value="Works">Works</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700">Location</label>
+                    <select 
+                      value={newUpdate.location}
+                      onChange={(e) => setNewUpdate({ ...newUpdate, location: e.target.value })}
+                      className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+                    >
+                      <option value="">Select Location</option>
+                      {districts.map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700">Document Link (Optional)</label>
+                    <input 
+                      type="url" 
+                      value={newUpdate.documentLink}
+                      onChange={(e) => setNewUpdate({ ...newUpdate, documentLink: e.target.value })}
+                      placeholder="https://example.com/tender-doc.pdf"
+                      className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700">Description</label>
+                    <textarea 
+                      required
+                      value={newUpdate.description}
+                      onChange={(e) => setNewUpdate({ ...newUpdate, description: e.target.value })}
+                      placeholder="Enter tender details..."
+                      rows={4}
+                      className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-sea-green focus:ring-sea-green"
+                    />
+                  </div>
+                  <button 
+                    type="submit"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-800 py-4 font-bold text-white shadow-lg transition-all hover:bg-slate-900"
+                  >
+                    Post Update
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="space-y-6">
+                <div className="flex flex-col justify-between gap-4 rounded-xl border border-blue-100 bg-blue-50/50 p-4 sm:flex-row sm:items-center">
+                  <div className="flex items-start gap-3 text-xs text-blue-800">
+                    <FileWarning size={18} className="mt-0.5 shrink-0 text-blue-500" />
+                    <div>
+                      <p className="font-bold">Excel Upload Instructions</p>
+                      <p className="mt-0.5 text-blue-600">Ensure columns match: <code className="font-mono bg-blue-100/50 px-1 rounded">Bid ID & Date (Title)*</code> and <code className="font-mono bg-blue-100/50 px-1 rounded">Description*</code>. Category, Location, and Document Link can be optional columns.</p>
+                    </div>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={handleDownloadTemplate}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition-all hover:bg-slate-50 shrink-0 self-start sm:self-center"
+                  >
+                    <Download size={14} className="text-slate-500" />
+                    Download Sample Excel
+                  </button>
+                </div>
+
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 transition-all ${
+                    isDragging ? 'border-sea-green bg-sea-green-light/20' : 'border-slate-300 bg-slate-50 hover:bg-slate-100'
+                  }`}
+                >
+                  <input 
+                    type="file" 
+                    id="bulk-file-input"
+                    accept=".xlsx, .xls, .csv"
+                    onChange={handleFileChange}
+                    className="absolute inset-0 cursor-pointer opacity-0"
+                  />
+                  <Upload size={36} className={`mb-3 ${isDragging ? 'text-sea-green' : 'text-slate-400'}`} />
+                  <p className="text-sm font-bold text-slate-700">
+                    {bulkFile ? bulkFile.name : "Select or drag & drop Tender Excel file"}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">Supports .xlsx, .xls, .csv files only</p>
+                </div>
+
+                {parsedData.length > 0 && (
+                  <div className="mt-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-bold text-slate-900">
+                        Parsed Tenders Preview ({parsedData.length} total, {parsedData.filter(x => x.isValid).length} ready)
+                      </h4>
+                      <button 
+                        type="button" 
+                        onClick={() => { setParsedData([]); setBulkFile(null); }}
+                        className="text-xs font-bold text-red-500 hover:underline"
+                      >
+                        Reset / Clear List
+                      </button>
+                    </div>
+
+                    <div className="max-h-60 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100 text-xs">
+                      {parsedData.map((item, idx) => (
+                        <div key={idx} className={`flex items-start justify-between p-3.5 ${item.isValid ? 'bg-white' : 'bg-red-50/50'}`}>
+                          <div className="space-y-1 pr-4">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-mono text-[10px] font-bold text-slate-400"># {idx + 1}</span>
+                              <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase ${
+                                item.category === 'Goods' ? 'bg-blue-50 text-blue-600' :
+                                item.category === 'Services' ? 'bg-indigo-50 text-indigo-600' : 'bg-purple-50 text-purple-600'
+                              }`}>
+                                {item.category}
+                              </span>
+                              {item.location && (
+                                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600 uppercase">
+                                  {item.location}
+                                </span>
+                              )}
+                              {item.bidnumber && (
+                                <span className="font-medium text-slate-400 font-mono text-[10px]">ID: {item.bidnumber}</span>
+                              )}
+                            </div>
+                            <p className="font-bold text-slate-900">{item.title || <span className="text-red-500 italic font-normal">[No Title found in columns]</span>}</p>
+                            <p className="text-slate-500 line-clamp-1">{item.description || <span className="text-red-500 italic font-normal">[No Description found]</span>}</p>
+                            {!item.isValid && (
+                              <p className="text-[10px] font-bold text-red-600 flex items-center gap-1 mt-1">
+                                <AlertTriangle size={12} /> {item.error}
+                              </p>
+                            )}
+                          </div>
+                          <button 
+                            type="button" 
+                            onClick={() => handleDeleteRow(idx)}
+                            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-red-500 transition-colors shrink-0"
+                            title="Delete Row"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {uploadProgress && (
+                      <div className="mt-4 rounded-xl bg-slate-50 p-4 border border-slate-200">
+                        <div className="flex justify-between text-xs font-bold text-slate-700 mb-2">
+                          <span>Uploading Tenders to Database...</span>
+                          <span>{uploadProgress.current} / {uploadProgress.total}</span>
+                        </div>
+                        <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200">
+                          <div 
+                            className="h-full bg-sea-green transition-all duration-300"
+                            style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      disabled={isLoading || parsedData.filter(x => x.isValid).length === 0}
+                      onClick={handleBulkSubmit}
+                      className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-800 py-4 font-bold text-white shadow-lg transition-all hover:bg-slate-900 disabled:opacity-50"
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 size={18} className="animate-spin text-white" />
+                          Publishing Bulk Upload ({uploadProgress?.current || 0} / {uploadProgress?.total || 0})
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle size={18} className="text-sea-green-light" />
+                          Publish Raw Tenders ({parsedData.filter(x => x.isValid).length} valid rows)
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
