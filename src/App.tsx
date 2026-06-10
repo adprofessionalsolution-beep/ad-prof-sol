@@ -3473,31 +3473,14 @@ function CertificateView() {
             </div>
           )}
 
-          {/* Background Logo - Inline SVG for 100% CORS safety and fast loading */}
-          <div className="absolute inset-0 z-0 flex items-center justify-center opacity-[0.05] pointer-events-none">
-            <svg viewBox="0 0 500 500" className="w-[85%] text-slate-800" fill="currentColor">
-              <circle cx="250" cy="250" r="140" stroke="currentColor" strokeWidth="8" fill="none" strokeDasharray="20 10" />
-              <circle cx="250" cy="250" r="100" stroke="currentColor" strokeWidth="4" fill="none" />
-              <circle cx="250" cy="250" r="40" stroke="currentColor" strokeWidth="12" fill="none" strokeDasharray="10 5" />
-              <circle cx="250" cy="250" r="15" fill="currentColor" />
-              
-              {/* Gears and outer spikes simulating the famous Make in India lion gear wheels */}
-              {Array.from({ length: 12 }).map((_, i) => {
-                const angle = (i * 360) / 12;
-                return (
-                  <path 
-                    key={i}
-                    d="M 250 80 L 240 110 L 260 110 Z" 
-                    transform={`rotate(${angle} 250 250)`} 
-                    fill="currentColor" 
-                  />
-                );
-              })}
-              
-              {/* Text emblem wrapping */}
-              <text x="250" y="440" textAnchor="middle" className="text-3xl font-black uppercase tracking-[0.25em]">MAKE IN INDIA</text>
-              <text x="250" y="55" textAnchor="middle" className="text-sm font-bold uppercase tracking-[0.5em] opacity-80">SELF CERTIFICATION</text>
-            </svg>
+          {/* Background Logo - Loaded locally to bypass CORS security block during PDF generation */}
+          <div className="absolute inset-0 z-0 flex items-center justify-center opacity-[0.08] pointer-events-none">
+            <img 
+              src="/make_in_india.png" 
+              alt="Make In India Logo Watermark" 
+              className="w-[85%] max-h-[70%] object-contain"
+              crossOrigin="anonymous"
+            />
           </div>
 
           <div className="relative z-10 space-y-8 text-slate-900">
