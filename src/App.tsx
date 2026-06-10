@@ -3383,11 +3383,27 @@ function CertificateView() {
     if (!certificateRef.current) return;
     setIsDownloading(true);
     try {
+      // Temporarily override styles for full content capture (no scroll cutoffs)
+      const originalStyle = certificateRef.current.style.cssText;
+      certificateRef.current.style.setProperty('height', 'auto', 'important');
+      certificateRef.current.style.setProperty('min-height', 'none', 'important');
+      certificateRef.current.style.setProperty('max-height', 'none', 'important');
+      certificateRef.current.style.setProperty('overflow', 'visible', 'important');
+      certificateRef.current.style.setProperty('aspect-ratio', 'auto', 'important');
+
       const dataUrl = await htmlToImage.toPng(certificateRef.current, {
-        quality: 1,
-        pixelRatio: 2,
-        backgroundColor: '#ffffff'
+        pixelRatio: 2.0,
+        backgroundColor: '#ffffff',
+        cacheBust: true,
+        style: {
+          transform: 'none',
+          borderRadius: '0px',
+          boxShadow: 'none'
+        }
       });
+      
+      // Restore styles
+      certificateRef.current.style.cssText = originalStyle;
       
       const img = new Image();
       img.src = dataUrl;
@@ -3397,11 +3413,25 @@ function CertificateView() {
       const imgProps = pdf.getImageProperties(dataUrl);
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      const pageHeight = pdf.internal.pageSize.getHeight();
       
-      pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      let leftHeight = pdfHeight;
+      let position = 0;
+      
+      pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, pdfHeight);
+      leftHeight -= pageHeight;
+      
+      while (leftHeight > 0) {
+        position = leftHeight - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, pdfHeight);
+        leftHeight -= pageHeight;
+      }
+      
       pdf.save(`MII_Certificate_${formData.companyName.replace(/\s+/g, '_') || 'Result'}.pdf`);
     } catch (err) {
       console.error('Download error:', err);
+      alert('Failed to download certificate. Please try again.');
     } finally {
       setIsDownloading(false);
     }
@@ -3443,14 +3473,31 @@ function CertificateView() {
             </div>
           )}
 
-          {/* Background Logo */}
-          <div className="absolute inset-0 z-0 flex items-center justify-center opacity-10 pointer-events-none">
-            <img 
-              src="https://upload.wikimedia.org/wikipedia/en/thumb/5/52/Make_In_India.png/1200px-Make_In_India.png" 
-              alt="Make In India Logo" 
-              className="w-3/4 grayscale"
-              referrerPolicy="no-referrer"
-            />
+          {/* Background Logo - Inline SVG for 100% CORS safety and fast loading */}
+          <div className="absolute inset-0 z-0 flex items-center justify-center opacity-[0.05] pointer-events-none">
+            <svg viewBox="0 0 500 500" className="w-[85%] text-slate-800" fill="currentColor">
+              <circle cx="250" cy="250" r="140" stroke="currentColor" strokeWidth="8" fill="none" strokeDasharray="20 10" />
+              <circle cx="250" cy="250" r="100" stroke="currentColor" strokeWidth="4" fill="none" />
+              <circle cx="250" cy="250" r="40" stroke="currentColor" strokeWidth="12" fill="none" strokeDasharray="10 5" />
+              <circle cx="250" cy="250" r="15" fill="currentColor" />
+              
+              {/* Gears and outer spikes simulating the famous Make in India lion gear wheels */}
+              {Array.from({ length: 12 }).map((_, i) => {
+                const angle = (i * 360) / 12;
+                return (
+                  <path 
+                    key={i}
+                    d="M 250 80 L 240 110 L 260 110 Z" 
+                    transform={`rotate(${angle} 250 250)`} 
+                    fill="currentColor" 
+                  />
+                );
+              })}
+              
+              {/* Text emblem wrapping */}
+              <text x="250" y="440" textAnchor="middle" className="text-3xl font-black uppercase tracking-[0.25em]">MAKE IN INDIA</text>
+              <text x="250" y="55" textAnchor="middle" className="text-sm font-bold uppercase tracking-[0.5em] opacity-80">SELF CERTIFICATION</text>
+            </svg>
           </div>
 
           <div className="relative z-10 space-y-8 text-slate-900">
@@ -3898,11 +3945,27 @@ function EscalationView() {
     if (!matrixRef.current) return;
     setIsExporting(true);
     try {
+      // Temporarily override styles for full content capture (no scroll cutoffs)
+      const originalStyle = matrixRef.current.style.cssText;
+      matrixRef.current.style.setProperty('height', 'auto', 'important');
+      matrixRef.current.style.setProperty('min-height', 'none', 'important');
+      matrixRef.current.style.setProperty('max-height', 'none', 'important');
+      matrixRef.current.style.setProperty('overflow', 'visible', 'important');
+      matrixRef.current.style.setProperty('aspect-ratio', 'auto', 'important');
+
       const dataUrl = await htmlToImage.toPng(matrixRef.current, {
-        quality: 1,
-        pixelRatio: 2,
-        backgroundColor: '#ffffff'
+        pixelRatio: 2.0,
+        backgroundColor: '#ffffff',
+        cacheBust: true,
+        style: {
+          transform: 'none',
+          borderRadius: '0px',
+          boxShadow: 'none'
+        }
       });
+      
+      // Restore styles
+      matrixRef.current.style.cssText = originalStyle;
       
       const img = new Image();
       img.src = dataUrl;
@@ -3912,11 +3975,25 @@ function EscalationView() {
       const imgProps = pdf.getImageProperties(dataUrl);
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      const pageHeight = pdf.internal.pageSize.getHeight();
       
-      pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      let leftHeight = pdfHeight;
+      let position = 0;
+      
+      pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, pdfHeight);
+      leftHeight -= pageHeight;
+      
+      while (leftHeight > 0) {
+        position = leftHeight - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, pdfHeight);
+        leftHeight -= pageHeight;
+      }
+      
       pdf.save(`Escalation_Matrix_${companyName.replace(/\s+/g, '_') || 'Result'}.pdf`);
     } catch (err) {
       console.error('Export error:', err);
+      alert('Failed to export Escalation Matrix. Please try again.');
     } finally {
       setIsExporting(false);
     }
@@ -4215,11 +4292,27 @@ function NonBankruptcyView() {
     if (!documentRef.current) return;
     setIsExporting(true);
     try {
+      // Temporarily override styles for full content capture (no scroll cutoffs)
+      const originalStyle = documentRef.current.style.cssText;
+      documentRef.current.style.setProperty('height', 'auto', 'important');
+      documentRef.current.style.setProperty('min-height', 'none', 'important');
+      documentRef.current.style.setProperty('max-height', 'none', 'important');
+      documentRef.current.style.setProperty('overflow', 'visible', 'important');
+      documentRef.current.style.setProperty('aspect-ratio', 'auto', 'important');
+
       const dataUrl = await htmlToImage.toPng(documentRef.current, {
-        quality: 1,
-        pixelRatio: 2,
-        backgroundColor: '#ffffff'
+        pixelRatio: 2.0,
+        backgroundColor: '#ffffff',
+        cacheBust: true,
+        style: {
+          transform: 'none',
+          borderRadius: '0px',
+          boxShadow: 'none'
+        }
       });
+      
+      // Restore styles
+      documentRef.current.style.cssText = originalStyle;
       
       const img = new Image();
       img.src = dataUrl;
@@ -4229,11 +4322,25 @@ function NonBankruptcyView() {
       const imgProps = pdf.getImageProperties(dataUrl);
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      const pageHeight = pdf.internal.pageSize.getHeight();
       
-      pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      let leftHeight = pdfHeight;
+      let position = 0;
+      
+      pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, pdfHeight);
+      leftHeight -= pageHeight;
+      
+      while (leftHeight > 0) {
+        position = leftHeight - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, pdfHeight);
+        leftHeight -= pageHeight;
+      }
+      
       pdf.save(`Non_Bankruptcy_Undertaking_${formData.bidNumber || 'Result'}.pdf`);
     } catch (err) {
       console.error('Export error:', err);
+      alert('Failed to export Non-bankruptcy Undertaking. Please try again.');
     } finally {
       setIsExporting(false);
     }
