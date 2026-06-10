@@ -2706,9 +2706,12 @@ function AnalyzerView({ user, apiKey }: { user: UserData | null, apiKey: string 
     setIsExporting(true);
     try {
       const dataUrl = await htmlToImage.toPng(resultRef.current, {
-        quality: 1,
-        pixelRatio: 2,
-        backgroundColor: '#ffffff'
+        pixelRatio: 1.5,
+        backgroundColor: '#ffffff',
+        style: {
+          transform: 'none',
+          borderRadius: '0px'
+        }
       });
       
       const img = new Image();
@@ -2719,8 +2722,21 @@ function AnalyzerView({ user, apiKey }: { user: UserData | null, apiKey: string 
       const imgProps = pdf.getImageProperties(dataUrl);
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      const pageHeight = pdf.internal.pageSize.getHeight();
       
-      pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      let leftHeight = pdfHeight;
+      let position = 0;
+      
+      pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, pdfHeight);
+      leftHeight -= pageHeight;
+      
+      while (leftHeight > 0) {
+        position = leftHeight - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, pdfHeight);
+        leftHeight -= pageHeight;
+      }
+      
       pdf.save(`Bid_Analysis_${file?.name.replace('.pdf', '') || 'Result'}.pdf`);
     } catch (err) {
       console.error('Export error:', err);
@@ -2978,6 +2994,53 @@ function BidRateAnalyzerView({ apiKey }: { apiKey: string }) {
   const [result, setResult] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const resultRef = useRef<HTMLDivElement>(null);
+
+  const handleExportPDF = async () => {
+    if (!resultRef.current) return;
+    setIsExporting(true);
+    try {
+      const dataUrl = await htmlToImage.toPng(resultRef.current, {
+        pixelRatio: 1.5,
+        backgroundColor: '#ffffff',
+        style: {
+          transform: 'none',
+          borderRadius: '0px'
+        }
+      });
+      
+      const img = new Image();
+      img.src = dataUrl;
+      await new Promise((resolve) => (img.onload = resolve));
+      
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgProps = pdf.getImageProperties(dataUrl);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      
+      let leftHeight = pdfHeight;
+      let position = 0;
+      
+      pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, pdfHeight);
+      leftHeight -= pageHeight;
+      
+      while (leftHeight > 0) {
+        position = leftHeight - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, pdfHeight);
+        leftHeight -= pageHeight;
+      }
+      
+      pdf.save(`Bid_Rate_Analysis_Result.pdf`);
+    } catch (err) {
+      console.error('Export error:', err);
+      setError('Failed to export PDF. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   useEffect(() => {
     if (scopeOfWork) {
@@ -3202,66 +3265,81 @@ function BidRateAnalyzerView({ apiKey }: { apiKey: string }) {
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 lg:col-span-7">
           {result ? (
             <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-xl bg-white p-6 shadow-sm border-l-4 border-sea-green">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Recommended Bid Value</h3>
-                  <p className="mt-2 text-2xl font-black text-slate-900">{result.recommendedBidValue}</p>
-                  <div className="mt-2 flex items-center gap-2">
-                    <span className={cn(
-                      "rounded-md px-2 py-0.5 text-xs font-bold uppercase",
-                      result.suggestion === 'Below' ? "bg-green-100 text-green-700" :
-                      result.suggestion === 'Above' ? "bg-red-100 text-red-700" :
-                      "bg-blue-100 text-blue-700"
-                    )}>
-                      {result.suggestion} Estimated Value
-                    </span>
-                    <span className="text-xs font-bold text-slate-500">{result.percentageRange}</span>
+              <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+                <h3 className="text-lg font-bold text-slate-900">Analysis Result</h3>
+                <button
+                  type="button"
+                  onClick={handleExportPDF}
+                  disabled={isExporting}
+                  className="flex items-center gap-2 text-sm font-bold text-sea-green disabled:opacity-50"
+                >
+                  {isExporting ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
+                  {isExporting ? 'Exporting...' : 'Export PDF'}
+                </button>
+              </div>
+
+              <div ref={resultRef} className="space-y-6 p-4 bg-white rounded-xl border border-slate-100">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="rounded-xl bg-white p-6 shadow-sm border-l-4 border-sea-green border-t border-r border-b border-slate-100">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Recommended Bid Value</h3>
+                    <p className="mt-2 text-2xl font-black text-slate-900">{result.recommendedBidValue}</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className={cn(
+                        "rounded-md px-2 py-0.5 text-xs font-bold uppercase",
+                        result.suggestion === 'Below' ? "bg-green-100 text-green-700" :
+                        result.suggestion === 'Above' ? "bg-red-100 text-red-700" :
+                        "bg-blue-100 text-blue-700"
+                      )}>
+                        {result.suggestion} Estimated Value
+                      </span>
+                      <span className="text-xs font-bold text-slate-500">{result.percentageRange}</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl bg-white p-6 shadow-sm border border-slate-100">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Cost Breakdown</h3>
+                    <div className="mt-3 space-y-2 text-sm">
+                      <div className="flex justify-between border-b border-slate-100 pb-1">
+                        <span className="text-slate-500">Materials:</span>
+                        <span className="font-bold text-slate-700">{result.costBreakdown.materials}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-slate-100 pb-1">
+                        <span className="text-slate-500">Labor:</span>
+                        <span className="font-bold text-slate-700">{result.costBreakdown.labor}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-slate-100 pb-1">
+                        <span className="text-slate-400">Overheads/Compliance:</span>
+                        <span className="font-bold text-slate-700">{result.costBreakdown.overheadsAndCompliance}</span>
+                      </div>
+                      <div className="flex justify-between pt-1">
+                        <span className="text-sea-green font-bold">Est. Profit:</span>
+                        <span className="font-black text-sea-green">{result.costBreakdown.profit}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="rounded-xl bg-white p-6 shadow-sm">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Cost Breakdown</h3>
-                  <div className="mt-3 space-y-2 text-sm">
-                    <div className="flex justify-between border-b border-slate-100 pb-1">
-                      <span className="text-slate-500">Materials:</span>
-                      <span className="font-bold text-slate-700">{result.costBreakdown.materials}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-100 pb-1">
-                      <span className="text-slate-500">Labor:</span>
-                      <span className="font-bold text-slate-700">{result.costBreakdown.labor}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-100 pb-1">
-                      <span className="text-slate-500">Overheads/Compliance:</span>
-                      <span className="font-bold text-slate-700">{result.costBreakdown.overheadsAndCompliance}</span>
-                    </div>
-                    <div className="flex justify-between pt-1">
-                      <span className="text-sea-green font-bold">Est. Profit:</span>
-                      <span className="font-black text-sea-green">{result.costBreakdown.profit}</span>
-                    </div>
-                  </div>
+                <div className="rounded-xl bg-white p-6 shadow-sm border border-slate-100">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Competitive Strategy</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-700 font-medium">{result.competitiveStrategy}</p>
                 </div>
-              </div>
 
-              <div className="rounded-xl bg-white p-6 shadow-sm">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Competitive Strategy</h3>
-                <p className="mt-2 text-sm leading-relaxed text-slate-700 font-medium">{result.competitiveStrategy}</p>
-              </div>
+                <div className="rounded-xl bg-white p-6 shadow-sm border border-slate-100">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Reasoning</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600">{result.reasoning}</p>
+                </div>
 
-              <div className="rounded-xl bg-white p-6 shadow-sm">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Reasoning</h3>
-                <p className="mt-2 text-sm leading-relaxed text-slate-600">{result.reasoning}</p>
-              </div>
-
-              <div className="rounded-xl bg-white p-6 shadow-sm">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Risk Factors & Hidden Costs</h3>
-                <ul className="mt-3 space-y-2">
-                  {result.riskFactors.map((risk: string, idx: number) => (
-                    <li key={idx} className="flex items-start gap-2 text-sm text-slate-600">
-                      <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-500" />
-                      <span>{risk}</span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="rounded-xl bg-white p-6 shadow-sm border border-slate-100">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Risk Factors & Hidden Costs</h3>
+                  <ul className="mt-3 space-y-2">
+                    {result.riskFactors.map((risk: string, idx: number) => (
+                      <li key={idx} className="flex items-start gap-2 text-sm text-slate-600">
+                        <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-500" />
+                        <span>{risk}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
             </div>
           ) : (
