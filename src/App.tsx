@@ -2889,6 +2889,21 @@ function AnalyzerView({ user, apiKey }: { user: UserData | null, apiKey: string 
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6"
         >
+          {/* Professional Header of the Report */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <ADPSLogo className="h-10 w-10 text-sea-green" />
+              <div>
+                <h3 className="text-xl font-black tracking-tight text-slate-900">A D Professional Solution</h3>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Tender & Bid Compliance Report</p>
+              </div>
+            </div>
+            <div className="text-right sm:text-right text-xs text-slate-500 font-medium whitespace-nowrap">
+              <div>Date: {new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+              {file && <div className="truncate max-w-[200px] text-slate-400">File: {file.name}</div>}
+            </div>
+          </div>
+
           {/* Key Deadlines & EMD */}
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -3278,7 +3293,22 @@ function BidRateAnalyzerView({ apiKey }: { apiKey: string }) {
                 </button>
               </div>
 
-              <div ref={resultRef} className="space-y-6 p-4 bg-white rounded-xl border border-slate-100">
+              <div ref={resultRef} className="space-y-6 p-6 bg-white rounded-xl border border-slate-100">
+                {/* Professional Header of the Report */}
+                <div className="flex flex-col sm:flex-row items-center justify-between border-b border-slate-200 pb-4 mb-4">
+                  <div className="flex items-center gap-3">
+                    <ADPSLogo className="h-10 w-10 text-sea-green" />
+                    <div>
+                      <h4 className="text-lg font-black tracking-tight text-slate-900">A D Professional Solution</h4>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Financial Bid Rate Analysis Report</p>
+                    </div>
+                  </div>
+                  <div className="text-right sm:text-right mt-2 sm:mt-0 text-xs text-slate-500 font-medium font-mono">
+                    <div>Date: {new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                    {estimatedValue && <div className="text-slate-400">Est. Value: {estimatedValue}</div>}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="rounded-xl bg-white p-6 shadow-sm border-l-4 border-sea-green border-t border-r border-b border-slate-100">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Recommended Bid Value</h3>
@@ -3473,16 +3503,6 @@ function CertificateView() {
             </div>
           )}
 
-          {/* Background Logo - Loaded locally to bypass CORS security block during PDF generation */}
-          <div className="absolute inset-0 z-0 flex items-center justify-center opacity-[0.08] pointer-events-none">
-            <img 
-              src="/make_in_india.png" 
-              alt="Make In India Logo Watermark" 
-              className="w-[85%] max-h-[70%] object-contain"
-              crossOrigin="anonymous"
-            />
-          </div>
-
           <div className="relative z-10 space-y-8 text-slate-900">
             <div className="text-center space-y-1">
               <h1 className="text-xl font-bold underline underline-offset-4">
@@ -3536,6 +3556,8 @@ function CertificateView() {
                 <p className="font-bold text-sm">Authorized Signatory</p>
               </div>
             </div>
+
+
           </div>
         </div>
       </div>
@@ -3666,6 +3688,9 @@ function CertificateView() {
               />
             </div>
           </div>
+
+
+
           <button 
             type="submit"
             className="w-full rounded-xl bg-sea-green py-4 font-bold text-white shadow-lg transition-all hover:bg-sea-green-dark active:scale-95"
