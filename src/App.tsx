@@ -3896,25 +3896,22 @@ function PricingView({ user, onUpdateUser, onLoginRequest }: { user: UserData | 
               )}
 
               <div className="flex flex-col gap-3 pt-4">
-                <button 
-                  onClick={async () => {
-                    const regDate = user!.registrationDate ? new Date(user!.registrationDate) : new Date();
-                    const daysToAdd = selectedPlan.name === 'Yearly Plan' ? 365 : selectedPlan.name === 'Pro Monthly' ? 30 : 0;
-                    const newEnd = daysToAdd > 0 
-                      ? new Date(regDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000).toISOString()
-                      : null;
-                    await onUpdateUser({ 
-                      ...user!, 
-                      plan: selectedPlan.name, 
-                      subscriptionEnd: newEnd 
-                    });
-                    setSelectedPlan(null);
-                    alert(`Successfully activated ${selectedPlan.name}!`);
-                  }}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-sea-green py-3.5 text-sm font-bold text-white shadow-lg hover:bg-sea-green-dark transition-all active:scale-95"
-                >
-                  Confirm & Activate {selectedPlan.name}
-                </button>
+                {selectedPlan.name === "Free Plan" && (
+                  <button 
+                    onClick={async () => {
+                      await onUpdateUser({ 
+                        ...user!, 
+                        plan: selectedPlan.name, 
+                        subscriptionEnd: null 
+                      });
+                      setSelectedPlan(null);
+                      alert(`Successfully activated ${selectedPlan.name}!`);
+                    }}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-sea-green py-3.5 text-sm font-bold text-white shadow-lg hover:bg-sea-green-dark transition-all active:scale-95"
+                  >
+                    Confirm & Activate {selectedPlan.name}
+                  </button>
+                )}
                 <button 
                   onClick={() => {
                     setSelectedPlan(null);
