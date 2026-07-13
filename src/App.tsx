@@ -3706,8 +3706,137 @@ function CertificateView() {
 function PricingView({ user, onUpdateUser, onLoginRequest }: { user: UserData | null, onUpdateUser: (user: UserData) => void, onLoginRequest: () => void }) {
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [hasInitiatedPayment, setHasInitiatedPayment] = useState(false);
+  const [isProcessingRazorpay, setIsProcessingRazorpay] = useState(false);
+  const [razorpayError, setRazorpayError] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'razorpay' | 'manual'>('razorpay');
+  
   const upiId = "9851334382@ptyes"; // Updated UPI ID
   const upiName = "A D professional Solution";
+
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handleRazorpayCheckout = async (plan: any) => {
+    setIsProcessingRazorpay(true);
+    setRazorpayError(null);
+
+    try {
+      // 1. Ensure Razorpay script is loaded dynamically
+      if (!(window as any).Razorpay) {
+        const loaded = await loadRazorpayScript();
+        if (!loaded) {
+          throw new Error("Failed to load Razorpay payment gateway script. Please check your network connection.");
+        }
+      }
+
+      // 2. Create Razorpay order on our backend
+      const amountInPaise = parseFloat(plan.price) * 100;
+      const createOrderResponse = await fetch("/api/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: amountInPaise,
+          currency: "INR",
+          receipt: `receipt_user_${user?.uid || 'guest'}_${Date.now()}`
+        })
+      });
+
+      if (!createOrderResponse.ok) {
+        const errorData = await createOrderResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to initiate payment. Please try again.");
+      }
+
+      const orderData = await createOrderResponse.json();
+      const { order_id, amount, currency } = orderData;
+
+      // 3. Configure Razorpay options using specified Key ID
+      const keyId = (import.meta as any).env?.VITE_RAZORPAY_KEY_ID || "rzp_test_TD2iCtfDym4T6G";
+      const options = {
+        key: keyId,
+        amount: amount,
+        currency: currency,
+        name: "A D Professional Solution",
+        description: `Subscription for ${plan.name}`,
+        order_id: order_id,
+        prefill: {
+          name: user?.name || "",
+          email: user?.email || "",
+          contact: user?.whatsapp || ""
+        },
+        theme: {
+          color: "#00A63F" // Matching application's brand green color
+        },
+        handler: async function (response: any) {
+          try {
+            setIsProcessingRazorpay(true);
+            // Verify payment signature on the backend
+            const verifyResponse = await fetch("/api/verify-payment", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                email: user?.email,
+                plan: plan.name
+              })
+            });
+
+            if (!verifyResponse.ok) {
+              const verifyError = await verifyResponse.json().catch(() => ({}));
+              throw new Error(verifyError.error || "Payment verification failed.");
+            }
+
+            // Payment is verified successfully! Update client-side user state & firestore
+            const regDate = user!.registrationDate ? new Date(user!.registrationDate) : new Date();
+            const daysToAdd = plan.name === 'Yearly Plan' ? 365 : 30;
+            const newEnd = new Date(regDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000).toISOString();
+            
+            await onUpdateUser({ 
+              ...user!, 
+              plan: plan.name, 
+              subscriptionEnd: newEnd 
+            });
+
+            setSelectedPlan(null);
+            alert(`Payment successful! You are now subscribed to the ${plan.name}.`);
+          } catch (err: any) {
+            console.error("Verification error:", err);
+            setRazorpayError(err.message || "Something went wrong during payment verification.");
+          } finally {
+            setIsProcessingRazorpay(false);
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            setIsProcessingRazorpay(false);
+            console.log("Razorpay checkout modal closed by user.");
+          }
+        }
+      };
+
+      const rzpInstance = new (window as any).Razorpay(options);
+      
+      rzpInstance.on("payment.failed", function (response: any) {
+        console.error("Payment failed:", response.error);
+        setRazorpayError(`Payment failed: ${response.error.description || "Reason unknown"}`);
+        setIsProcessingRazorpay(false);
+      });
+
+      rzpInstance.open();
+    } catch (err: any) {
+      console.error("Razorpay Checkout Error:", err);
+      setRazorpayError(err.message || "Failed to initialize Razorpay checkout.");
+      setIsProcessingRazorpay(false);
+    }
+  };
 
   const plans = [
     {
@@ -3822,7 +3951,11 @@ function PricingView({ user, onUpdateUser, onLoginRequest }: { user: UserData | 
             <div className="mb-6 flex items-center justify-between">
               <h3 className="text-xl font-bold text-slate-900">Complete Payment</h3>
               <button 
-                onClick={() => setSelectedPlan(null)}
+                onClick={() => {
+                  setSelectedPlan(null);
+                  setRazorpayError(null);
+                  setIsProcessingRazorpay(false);
+                }}
                 className="rounded-full p-2 hover:bg-sea-green-light"
               >
                 <X size={20} />
@@ -3831,65 +3964,149 @@ function PricingView({ user, onUpdateUser, onLoginRequest }: { user: UserData | 
             
             <div className="space-y-6 text-center">
               <div className="rounded-2xl bg-sea-green-light p-6">
-                <p className="text-sm text-slate-500">You are subscribing to</p>
+                <p className="text-xs font-semibold text-sea-green uppercase tracking-wider">You are subscribing to</p>
                 <p className="text-2xl font-black text-sea-green">{selectedPlan.name}</p>
                 <p className="mt-2 text-3xl font-bold text-slate-900">₹{selectedPlan.price}</p>
               </div>
 
-              <div className="flex flex-col items-center gap-4">
-                <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white p-4">
-                  <h3 className="mb-2 text-sm font-bold text-slate-900">{upiName}</h3>
-                  <img 
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiName)}&am=${selectedPlan.price}&cu=INR&tn=Subscription%20for%20${selectedPlan.name}`)}`}
-                    alt="UPI QR Code"
-                    className="h-48 w-48 rounded-lg"
-                    referrerPolicy="no-referrer"
-                  />
-                  <p className="mt-4 text-xs font-bold text-slate-500 font-mono">UPI ID: {upiId}</p>
-                  <p className="text-xs font-bold text-slate-500 font-mono">+91 87775 61824</p>
-                </div>
-                <p className="text-sm text-slate-500 text-center">
-                  Scan this QR code using any UPI app (GPay, PhonePe, Paytm) to complete your subscription.
-                </p>
+              {/* Payment Method Tabs */}
+              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('razorpay')}
+                  className={cn(
+                    "py-2.5 text-xs font-bold rounded-lg transition-all",
+                    paymentMethod === 'razorpay' 
+                      ? "bg-white text-slate-900 shadow-sm" 
+                      : "text-slate-500 hover:text-slate-800"
+                  )}
+                >
+                  💳 Card/Netbanking
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('manual')}
+                  className={cn(
+                    "py-2.5 text-xs font-bold rounded-lg transition-all",
+                    paymentMethod === 'manual' 
+                      ? "bg-white text-slate-900 shadow-sm" 
+                      : "text-slate-500 hover:text-slate-800"
+                  )}
+                >
+                  QR Code / UPI
+                </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <button 
-                  onClick={() => {
-                    setHasInitiatedPayment(true);
-                    const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiName)}&am=${selectedPlan.price}&cu=INR&tn=Subscription%20for%20${selectedPlan.name}`;
-                    window.location.href = upiUrl;
-                  }}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-sea-green py-3 text-sm font-bold text-white shadow-lg hover:bg-sea-green-dark"
-                >
-                  Pay via App
-                </button>
-                <button 
-                  onClick={() => {
-                    setSelectedPlan(null);
-                    setHasInitiatedPayment(false);
-                  }}
-                  className="rounded-xl bg-sea-green-light py-3 text-sm font-bold text-sea-green hover:bg-sea-green/20"
-                >
-                  Cancel
-                </button>
-                {hasInitiatedPayment && (
-                  <button 
-                    onClick={async () => {
-                      const regDate = user!.registrationDate ? new Date(user!.registrationDate) : new Date();
-                      const daysToAdd = selectedPlan.name === 'Yearly Plan' ? 365 : 30;
-                      const newEnd = new Date(regDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000).toISOString();
-                      await onUpdateUser({ ...user!, plan: selectedPlan.name, subscriptionEnd: newEnd });
-                      setSelectedPlan(null);
-                      setHasInitiatedPayment(false);
-                      alert(`Successfully subscribed to ${selectedPlan.name}!`);
-                    }}
-                    className="col-span-2 mt-2 flex items-center justify-center gap-2 rounded-xl bg-slate-900 py-3 text-sm font-bold text-white shadow-lg hover:bg-slate-800"
-                  >
-                    I have paid (Confirm)
-                  </button>
-                )}
-              </div>
+              {razorpayError && (
+                <div className="rounded-xl bg-rose-50 border border-rose-200 p-4 text-left flex items-start gap-3">
+                  <AlertTriangle className="text-rose-500 shrink-0 mt-0.5" size={18} />
+                  <div>
+                    <h5 className="text-xs font-bold text-rose-800">Payment Failed</h5>
+                    <p className="text-[11px] text-rose-600 mt-0.5">{razorpayError}</p>
+                  </div>
+                </div>
+              )}
+
+              {paymentMethod === 'razorpay' ? (
+                <div className="py-4 space-y-6">
+                  <div className="rounded-2xl border border-slate-100 bg-slate-50 p-6 text-center">
+                    <p className="text-sm font-medium text-slate-600 leading-relaxed">
+                      Instant and automated activation. Pay securely using Credit/Debit Cards, Netbanking, UPI, or Wallets via India's most trusted gateway.
+                    </p>
+                    <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-slate-400 font-bold">
+                      <span>🛡️</span>
+                      <span>Razorpay Standard Secure Gateway</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <button 
+                      onClick={() => handleRazorpayCheckout(selectedPlan)}
+                      disabled={isProcessingRazorpay}
+                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-sea-green py-4 text-sm font-bold text-white shadow-lg hover:bg-sea-green-dark disabled:opacity-50 transition-all active:scale-95"
+                    >
+                      {isProcessingRazorpay ? (
+                        <>
+                          <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          <span>Processing Securely...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard size={18} />
+                          <span>Pay Securely ₹{selectedPlan.price}</span>
+                        </>
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setSelectedPlan(null);
+                        setRazorpayError(null);
+                        setIsProcessingRazorpay(false);
+                      }}
+                      className="w-full rounded-xl bg-slate-100 py-3.5 text-sm font-bold text-slate-500 hover:bg-slate-200"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white p-4">
+                      <h3 className="mb-2 text-sm font-bold text-slate-900">{upiName}</h3>
+                      <img 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiName)}&am=${selectedPlan.price}&cu=INR&tn=Subscription%20for%20${selectedPlan.name}`)}`}
+                        alt="UPI QR Code"
+                        className="h-48 w-48 rounded-lg"
+                        referrerPolicy="no-referrer"
+                      />
+                      <p className="mt-4 text-xs font-bold text-slate-500 font-mono">UPI ID: {upiId}</p>
+                      <p className="text-xs font-bold text-slate-500 font-mono">+91 87775 61824</p>
+                    </div>
+                    <p className="text-sm text-slate-500 text-center">
+                      Scan this QR code using any UPI app (GPay, PhonePe, Paytm) to complete your subscription.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <button 
+                      onClick={() => {
+                        setHasInitiatedPayment(true);
+                        const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiName)}&am=${selectedPlan.price}&cu=INR&tn=Subscription%20for%20${selectedPlan.name}`;
+                        window.location.href = upiUrl;
+                      }}
+                      className="flex items-center justify-center gap-2 rounded-xl bg-sea-green py-3 text-sm font-bold text-white shadow-lg hover:bg-sea-green-dark"
+                    >
+                      Pay via App
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setSelectedPlan(null);
+                        setHasInitiatedPayment(false);
+                      }}
+                      className="rounded-xl bg-sea-green-light py-3 text-sm font-bold text-sea-green hover:bg-sea-green/20"
+                    >
+                      Cancel
+                    </button>
+                    {hasInitiatedPayment && (
+                      <button 
+                        onClick={async () => {
+                          const regDate = user!.registrationDate ? new Date(user!.registrationDate) : new Date();
+                          const daysToAdd = selectedPlan.name === 'Yearly Plan' ? 365 : 30;
+                          const newEnd = new Date(regDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000).toISOString();
+                          await onUpdateUser({ ...user!, plan: selectedPlan.name, subscriptionEnd: newEnd });
+                          setSelectedPlan(null);
+                          setHasInitiatedPayment(false);
+                          alert(`Successfully subscribed to ${selectedPlan.name}!`);
+                        }}
+                        className="col-span-2 mt-2 flex items-center justify-center gap-2 rounded-xl bg-slate-900 py-3 text-sm font-bold text-white shadow-lg hover:bg-slate-800"
+                      >
+                        I have paid (Confirm)
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
