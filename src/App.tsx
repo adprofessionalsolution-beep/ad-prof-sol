@@ -3703,6 +3703,41 @@ function CertificateView() {
   );
 }
 
+// Razorpay Payment Button Component for subscriptions
+function RazorpayPaymentButton({ buttonId }: { buttonId: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    
+    // Clear the container to prevent duplicates
+    containerRef.current.innerHTML = '';
+    
+    const form = document.createElement('form');
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/payment-button.js';
+    script.setAttribute('data-payment_button_id', buttonId);
+    script.async = true;
+    
+    form.appendChild(script);
+    containerRef.current.appendChild(form);
+
+    return () => {
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
+      }
+    };
+  }, [buttonId]);
+
+  return (
+    <div 
+      ref={containerRef} 
+      className="flex justify-center items-center my-4 min-h-[60px] p-2 bg-emerald-50/50 rounded-xl border border-emerald-100" 
+      id="razorpay-button-container" 
+    />
+  );
+}
+
 function PricingView({ user, onUpdateUser, onLoginRequest }: { user: UserData | null, onUpdateUser: (user: UserData) => void, onLoginRequest: () => void }) {
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [hasInitiatedPayment, setHasInitiatedPayment] = useState(false);
@@ -3829,12 +3864,32 @@ function PricingView({ user, onUpdateUser, onLoginRequest }: { user: UserData | 
               </button>
             </div>
             
-            <div className="space-y-6 text-center">
+            <div className="space-y-6 text-center animate-fade-in">
               <div className="rounded-2xl bg-sea-green-light p-6">
                 <p className="text-sm text-slate-500">You are subscribing to</p>
                 <p className="text-2xl font-black text-sea-green">{selectedPlan.name}</p>
                 <p className="mt-2 text-3xl font-bold text-slate-900">₹{selectedPlan.price}</p>
               </div>
+
+              {selectedPlan.name === "Pro Monthly" && (
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/20 p-4 text-center space-y-2">
+                  <p className="text-xs font-extrabold text-emerald-800 uppercase tracking-widest flex items-center justify-center gap-1">
+                    <span>⚡</span> Instant Online Payment
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-slate-500">
+                    Pay securely using Card, Netbanking, UPI, or Wallet. Your Pro activation will be processed automatically:
+                  </p>
+                  <RazorpayPaymentButton buttonId="pl_TD37RtftTrBHjd" />
+                </div>
+              )}
+
+              {selectedPlan.name === "Pro Monthly" && (
+                <div className="flex items-center justify-center my-2">
+                  <div className="w-full border-t border-slate-200"></div>
+                  <span className="px-3 text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Or pay manually via QR</span>
+                  <div className="w-full border-t border-slate-200"></div>
+                </div>
+              )}
 
               <div className="flex flex-col items-center gap-4">
                 <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white p-4">
