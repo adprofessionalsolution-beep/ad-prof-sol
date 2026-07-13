@@ -3883,7 +3883,19 @@ function PricingView({ user, onUpdateUser, onLoginRequest }: { user: UserData | 
                 </div>
               )}
 
-              {selectedPlan.name === "Pro Monthly" && (
+              {selectedPlan.name === "Yearly Plan" && (
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/20 p-4 text-center space-y-2">
+                  <p className="text-xs font-extrabold text-emerald-800 uppercase tracking-widest flex items-center justify-center gap-1">
+                    <span>⚡</span> Instant Online Payment
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-slate-500">
+                    Pay securely using Card, Netbanking, UPI, or Wallet. Your Yearly activation will be processed automatically:
+                  </p>
+                  <RazorpayPaymentButton buttonId="pl_TD3U9gIzv3tyLV" />
+                </div>
+              )}
+
+              {(selectedPlan.name === "Pro Monthly" || selectedPlan.name === "Yearly Plan") && (
                 <div className="flex items-center justify-center my-2">
                   <div className="w-full border-t border-slate-200"></div>
                   <span className="px-3 text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Or pay manually via QR</span>
