@@ -3895,67 +3895,34 @@ function PricingView({ user, onUpdateUser, onLoginRequest }: { user: UserData | 
                 </div>
               )}
 
-              {(selectedPlan.name === "Pro Monthly" || selectedPlan.name === "Yearly Plan") && (
-                <div className="flex items-center justify-center my-2">
-                  <div className="w-full border-t border-slate-200"></div>
-                  <span className="px-3 text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Or pay manually via QR</span>
-                  <div className="w-full border-t border-slate-200"></div>
-                </div>
-              )}
-
-              <div className="flex flex-col items-center gap-4">
-                <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white p-4">
-                  <h3 className="mb-2 text-sm font-bold text-slate-900">{upiName}</h3>
-                  <img 
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiName)}&am=${selectedPlan.price}&cu=INR&tn=Subscription%20for%20${selectedPlan.name}`)}`}
-                    alt="UPI QR Code"
-                    className="h-48 w-48 rounded-lg"
-                    referrerPolicy="no-referrer"
-                  />
-                  <p className="mt-4 text-xs font-bold text-slate-500 font-mono">UPI ID: {upiId}</p>
-                  <p className="text-xs font-bold text-slate-500 font-mono">+91 87775 61824</p>
-                </div>
-                <p className="text-sm text-slate-500 text-center">
-                  Scan this QR code using any UPI app (GPay, PhonePe, Paytm) to complete your subscription.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-3 pt-4">
                 <button 
-                  onClick={() => {
-                    setHasInitiatedPayment(true);
-                    const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiName)}&am=${selectedPlan.price}&cu=INR&tn=Subscription%20for%20${selectedPlan.name}`;
-                    window.location.href = upiUrl;
+                  onClick={async () => {
+                    const regDate = user!.registrationDate ? new Date(user!.registrationDate) : new Date();
+                    const daysToAdd = selectedPlan.name === 'Yearly Plan' ? 365 : selectedPlan.name === 'Pro Monthly' ? 30 : 0;
+                    const newEnd = daysToAdd > 0 
+                      ? new Date(regDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000).toISOString()
+                      : null;
+                    await onUpdateUser({ 
+                      ...user!, 
+                      plan: selectedPlan.name, 
+                      subscriptionEnd: newEnd 
+                    });
+                    setSelectedPlan(null);
+                    alert(`Successfully activated ${selectedPlan.name}!`);
                   }}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-sea-green py-3 text-sm font-bold text-white shadow-lg hover:bg-sea-green-dark"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-sea-green py-3.5 text-sm font-bold text-white shadow-lg hover:bg-sea-green-dark transition-all active:scale-95"
                 >
-                  Pay via App
+                  Confirm & Activate {selectedPlan.name}
                 </button>
                 <button 
                   onClick={() => {
                     setSelectedPlan(null);
-                    setHasInitiatedPayment(false);
                   }}
-                  className="rounded-xl bg-sea-green-light py-3 text-sm font-bold text-sea-green hover:bg-sea-green/20"
+                  className="rounded-xl bg-slate-100 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-200 transition-all"
                 >
                   Cancel
                 </button>
-                {hasInitiatedPayment && (
-                  <button 
-                    onClick={async () => {
-                      const regDate = user!.registrationDate ? new Date(user!.registrationDate) : new Date();
-                      const daysToAdd = selectedPlan.name === 'Yearly Plan' ? 365 : 30;
-                      const newEnd = new Date(regDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000).toISOString();
-                      await onUpdateUser({ ...user!, plan: selectedPlan.name, subscriptionEnd: newEnd });
-                      setSelectedPlan(null);
-                      setHasInitiatedPayment(false);
-                      alert(`Successfully subscribed to ${selectedPlan.name}!`);
-                    }}
-                    className="col-span-2 mt-2 flex items-center justify-center gap-2 rounded-xl bg-slate-900 py-3 text-sm font-bold text-white shadow-lg hover:bg-slate-800"
-                  >
-                    I have paid (Confirm)
-                  </button>
-                )}
               </div>
             </div>
           </div>
