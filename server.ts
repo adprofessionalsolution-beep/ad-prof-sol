@@ -3,12 +3,6 @@ import { createServer as createViteServer } from "vite";
 import nodemailer from "nodemailer";
 import path from "path";
 import axios from "axios";
-import dotenv from "dotenv";
-import Razorpay from "razorpay";
-import crypto from "crypto";
-
-// Load environment variables
-dotenv.config();
 
 // In-memory database for clients
 interface Client {
@@ -32,124 +26,7 @@ async function startServer() {
 
   app.use(express.json());
 
-  // Lazy initialization of Razorpay Client to avoid crashing if credentials are not set on start
-  let razorpayClient: any = null;
-  function getRazorpayClient() {
-    if (!razorpayClient) {
-      const keyId = process.env.RAZORPAY_KEY_ID;
-      const keySecret = process.env.RAZORPAY_KEY_SECRET;
-      if (!keyId || !keySecret) {
-        throw new Error("RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are required environment variables");
-      }
-      razorpayClient = new Razorpay({
-        key_id: keyId,
-        key_secret: keySecret,
-      });
-    }
-    return razorpayClient;
-  }
-
   // API routes
-  app.post("/api/create-order", async (req, res) => {
-    try {
-      const { amount, currency = "INR", receipt } = req.body;
-
-      if (!amount || typeof amount !== "number" || amount < 100) {
-        return res.status(400).json({ 
-          success: false, 
-          error: "Invalid amount. Minimum amount is 100 paise (1 INR)." 
-        });
-      }
-
-      const rzp = getRazorpayClient();
-      const options = {
-        amount, // in paise
-        currency,
-        receipt: receipt || `receipt_${Date.now()}`,
-      };
-
-      const order = await rzp.orders.create(options);
-      res.json({
-        success: true,
-        order_id: order.id,
-        amount: order.amount,
-        currency: order.currency,
-      });
-    } catch (error: any) {
-      console.error("Error creating Razorpay order:", error);
-      
-      // Handle authentication or configuration failures gracefully
-      if (error.statusCode === 401 || (error.message && error.message.toLowerCase().includes("auth"))) {
-        return res.status(401).json({ 
-          success: false, 
-          error: "Razorpay authentication failed. Please verify your RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET." 
-        });
-      }
-      
-      res.status(500).json({ 
-        success: false, 
-        error: error.message || "Failed to create Razorpay order" 
-      });
-    }
-  });
-
-  app.post("/api/verify-payment", (req, res) => {
-    try {
-      const { razorpay_order_id, razorpay_payment_id, razorpay_signature, email, plan } = req.body;
-
-      if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-        return res.status(400).json({ 
-          success: false, 
-          error: "Missing required verification parameters (order_id, payment_id, signature)." 
-        });
-      }
-
-      const keySecret = process.env.RAZORPAY_KEY_SECRET;
-      if (!keySecret) {
-        return res.status(500).json({ 
-          success: false, 
-          error: "Razorpay Key Secret is not configured on the server." 
-        });
-      }
-
-      // Generate the signature to compare
-      const generatedSignature = crypto
-        .createHmac("sha256", keySecret)
-        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-        .digest("hex");
-
-      if (generatedSignature === razorpay_signature) {
-        // Payment verified successfully
-        // Update client status/plan if info was passed
-        if (email && plan) {
-          const client = clients.find(c => c.email === email);
-          if (client) {
-            client.plan = plan;
-            client.status = "active";
-            const daysToAdd = plan === 'Yearly Plan' ? 365 : 30;
-            client.expiresAt = new Date(Date.now() + daysToAdd * 24 * 60 * 60 * 1000).toISOString();
-          }
-        }
-        
-        return res.json({ 
-          success: true, 
-          message: "Payment verified and processed successfully." 
-        });
-      } else {
-        return res.status(400).json({ 
-          success: false, 
-          error: "Payment signature verification failed. Potential tampering detected." 
-        });
-      }
-    } catch (error: any) {
-      console.error("Error verifying payment signature:", error);
-      res.status(500).json({ 
-        success: false, 
-        error: error.message || "Failed to verify signature" 
-      });
-    }
-  });
-
   app.post("/api/login", (req, res) => {
     const { email, password } = req.body;
     const client = clients.find(c => c.email === email && c.password === password);
