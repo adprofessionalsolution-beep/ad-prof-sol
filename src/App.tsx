@@ -41,7 +41,8 @@ import {
   CheckCircle,
   Send,
   Calculator,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCw
 } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 // @ts-ignore
@@ -52,11 +53,13 @@ import * as XLSX from 'xlsx';
 import { analyzeBidDocument, analyzeBidRate } from './services/gemini';
 import { cn } from './lib/utils';
 import { TermsView } from './components/TermsView';
+import { PrivacyPolicyView } from './components/PrivacyPolicyView';
+import { RefundPolicyView } from './components/RefundPolicyView';
 
 // Set PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
-type Tab = 'home' | 'analyzer' | 'rate-analyzer' | 'certificate' | 'escalation' | 'bankruptcy' | 'pricing' | 'tender-update' | 'blog' | 'admin' | 'terms';
+type Tab = 'home' | 'analyzer' | 'rate-analyzer' | 'certificate' | 'escalation' | 'bankruptcy' | 'pricing' | 'tender-update' | 'blog' | 'admin' | 'terms' | 'privacy' | 'refund';
 
 interface BlogPost {
   id: string;
@@ -718,6 +721,10 @@ export default function App() {
 
       if (currentRoute === 'terms' || currentRoute === 'terms-and-conditions') {
         setActiveTab('terms');
+      } else if (currentRoute === 'privacy' || currentRoute === 'privacy-policy') {
+        setActiveTab('privacy');
+      } else if (currentRoute === 'refund' || currentRoute === 'refund-policy' || currentRoute === 'refund-and-cancellation') {
+        setActiveTab('refund');
       } else if (currentRoute === 'analyzer') {
         setActiveTab('analyzer');
       } else if (currentRoute === 'rate-analyzer') {
@@ -748,7 +755,7 @@ export default function App() {
 
   const handleTabClick = (tab: Tab) => {
     console.log("Tab clicked:", tab);
-    if (!user && tab !== 'home' && tab !== 'pricing' && tab !== 'tender-update' && tab !== 'blog' && tab !== 'terms') {
+    if (!user && tab !== 'home' && tab !== 'pricing' && tab !== 'tender-update' && tab !== 'blog' && tab !== 'terms' && tab !== 'privacy' && tab !== 'refund') {
       setSignupMode('signup');
       setShowSignup(true);
     } else {
@@ -1238,6 +1245,8 @@ export default function App() {
         )}
         {activeTab === 'pricing' && <PricingView user={user} onUpdateUser={handleUpdateUser} onLoginRequest={() => setShowSignup(true)} />}
         {activeTab === 'terms' && <TermsView onBackToHome={() => handleTabClick('home')} />}
+        {activeTab === 'privacy' && <PrivacyPolicyView onBackToHome={() => handleTabClick('home')} />}
+        {activeTab === 'refund' && <RefundPolicyView onBackToHome={() => handleTabClick('home')} />}
         {activeTab === 'admin' && user?.isAdmin && <AdminDashboard currentApiKey={geminiApiKey} user={user} />}
       </main>
 
@@ -1260,7 +1269,7 @@ export default function App() {
               </p>
             </div>
             <div>
-              <h4 className="font-bold">Legal & Links</h4>
+              <h4 className="font-bold">Legal & Policies</h4>
               <ul className="mt-4 space-y-2 text-sm text-slate-500">
                 <li>
                   <button 
@@ -1279,24 +1288,42 @@ export default function App() {
                   </button>
                 </li>
                 <li>
-                  <button 
-                    onClick={() => handleTabClick('tender-update')}
-                    className="hover:text-sea-green hover:underline text-left transition-colors"
-                  >
-                    Tender Updates
-                  </button>
-                </li>
-                <li>
                   <a 
                     href="/terms" 
                     onClick={(e) => {
                       e.preventDefault();
                       handleTabClick('terms');
                     }}
-                    className="font-bold text-sea-green hover:underline text-left transition-colors inline-flex items-center gap-1"
+                    className="font-semibold text-slate-700 hover:text-sea-green hover:underline text-left transition-colors inline-flex items-center gap-1.5"
                   >
-                    <ShieldCheck size={14} />
+                    <ShieldCheck size={14} className="text-sea-green" />
                     Terms & Conditions
+                  </a>
+                </li>
+                <li>
+                  <a 
+                    href="/privacy" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleTabClick('privacy');
+                    }}
+                    className="font-semibold text-slate-700 hover:text-sea-green hover:underline text-left transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <Lock size={14} className="text-sea-green" />
+                    Privacy Policy
+                  </a>
+                </li>
+                <li>
+                  <a 
+                    href="/refund" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleTabClick('refund');
+                    }}
+                    className="font-semibold text-slate-700 hover:text-sea-green hover:underline text-left transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <RefreshCw size={14} className="text-sea-green" />
+                    Refund & Cancellation
                   </a>
                 </li>
               </ul>
@@ -1324,17 +1351,38 @@ export default function App() {
             <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
               © 2026 A D Professional Solution. All rights reserved.
             </div>
-            <div className="flex items-center gap-6">
+            <div className="flex flex-wrap items-center gap-4 sm:gap-6">
               <a 
                 href="/terms"
                 onClick={(e) => {
                   e.preventDefault();
                   handleTabClick('terms');
                 }}
-                className="text-xs font-bold text-sea-green hover:underline flex items-center gap-1.5 transition-colors"
+                className="text-xs font-bold text-slate-600 hover:text-sea-green hover:underline flex items-center gap-1 transition-colors"
               >
-                <ShieldCheck size={15} />
                 Terms & Conditions
+              </a>
+              <span className="text-slate-300">•</span>
+              <a 
+                href="/privacy"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleTabClick('privacy');
+                }}
+                className="text-xs font-bold text-slate-600 hover:text-sea-green hover:underline flex items-center gap-1 transition-colors"
+              >
+                Privacy Policy
+              </a>
+              <span className="text-slate-300">•</span>
+              <a 
+                href="/refund"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleTabClick('refund');
+                }}
+                className="text-xs font-bold text-slate-600 hover:text-sea-green hover:underline flex items-center gap-1 transition-colors"
+              >
+                Refund Policy
               </a>
             </div>
           </div>
@@ -1564,28 +1612,52 @@ function HomeView({ onServiceClick }: { onServiceClick: (tab: Tab) => void }) {
       </section>
 
       {/* Footer Legal Banner at bottom of Home Page */}
-      <section className="border-t border-slate-100 pt-8 flex flex-wrap items-center justify-between gap-4 bg-slate-50/80 border border-slate-100 p-6 rounded-2xl">
+      <section className="border-t border-slate-100 pt-8 flex flex-col sm:flex-row items-center justify-between gap-6 bg-slate-50/80 border border-slate-100 p-6 rounded-3xl">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sea-green-light text-sea-green">
-            <Scale size={20} />
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sea-green-light text-sea-green shrink-0">
+            <Scale size={24} />
           </div>
           <div>
-            <h4 className="text-sm font-bold text-slate-900">Legal & Platform Governance</h4>
-            <p className="text-xs text-slate-500">Review our terms of service, platform rules, and customer agreement.</p>
+            <h4 className="text-base font-bold text-slate-900">Legal & Platform Governance</h4>
+            <p className="text-xs text-slate-500">Review our mandatory policies, privacy rules, and refund guidelines.</p>
           </div>
         </div>
-        <a
-          href="/terms"
-          onClick={(e) => {
-            e.preventDefault();
-            onServiceClick('terms');
-          }}
-          className="inline-flex items-center gap-2 rounded-xl bg-sea-green px-5 py-2.5 text-xs font-bold text-white shadow-md hover:bg-sea-green-dark transition-all active:scale-95"
-        >
-          <ShieldCheck size={15} />
-          Read Terms & Conditions
-          <ChevronRight size={14} />
-        </a>
+        
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <a
+            href="/terms"
+            onClick={(e) => {
+              e.preventDefault();
+              onServiceClick('terms');
+            }}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-white border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-700 shadow-sm hover:border-sea-green hover:text-sea-green transition-all active:scale-95"
+          >
+            <ShieldCheck size={15} className="text-sea-green" />
+            Terms & Conditions
+          </a>
+          <a
+            href="/privacy"
+            onClick={(e) => {
+              e.preventDefault();
+              onServiceClick('privacy');
+            }}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-white border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-700 shadow-sm hover:border-sea-green hover:text-sea-green transition-all active:scale-95"
+          >
+            <Lock size={15} className="text-sea-green" />
+            Privacy Policy
+          </a>
+          <a
+            href="/refund"
+            onClick={(e) => {
+              e.preventDefault();
+              onServiceClick('refund');
+            }}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-sea-green px-4 py-2.5 text-xs font-bold text-white shadow-md hover:bg-sea-green-dark transition-all active:scale-95"
+          >
+            <RefreshCw size={15} />
+            Refund Policy
+          </a>
+        </div>
       </section>
     </div>
   );
