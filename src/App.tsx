@@ -51,11 +51,12 @@ import * as htmlToImage from 'html-to-image';
 import * as XLSX from 'xlsx';
 import { analyzeBidDocument, analyzeBidRate } from './services/gemini';
 import { cn } from './lib/utils';
+import { TermsView } from './components/TermsView';
 
 // Set PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
-type Tab = 'home' | 'analyzer' | 'rate-analyzer' | 'certificate' | 'escalation' | 'bankruptcy' | 'pricing' | 'tender-update' | 'blog' | 'admin';
+type Tab = 'home' | 'analyzer' | 'rate-analyzer' | 'certificate' | 'escalation' | 'bankruptcy' | 'pricing' | 'tender-update' | 'blog' | 'admin' | 'terms';
 
 interface BlogPost {
   id: string;
@@ -709,13 +710,53 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    const syncRouteWithTab = () => {
+      const path = window.location.pathname.replace(/^\//, '').toLowerCase();
+      const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
+      const currentRoute = path || hash;
+
+      if (currentRoute === 'terms' || currentRoute === 'terms-and-conditions') {
+        setActiveTab('terms');
+      } else if (currentRoute === 'analyzer') {
+        setActiveTab('analyzer');
+      } else if (currentRoute === 'rate-analyzer') {
+        setActiveTab('rate-analyzer');
+      } else if (currentRoute === 'pricing') {
+        setActiveTab('pricing');
+      } else if (currentRoute === 'tender-update') {
+        setActiveTab('tender-update');
+      } else if (currentRoute === 'blog') {
+        setActiveTab('blog');
+      } else if (currentRoute === 'certificate') {
+        setActiveTab('certificate');
+      } else if (currentRoute === 'escalation') {
+        setActiveTab('escalation');
+      } else if (currentRoute === 'bankruptcy') {
+        setActiveTab('bankruptcy');
+      } else if (currentRoute === 'admin') {
+        setActiveTab('admin');
+      } else if (currentRoute === '' || currentRoute === 'home') {
+        setActiveTab('home');
+      }
+    };
+
+    syncRouteWithTab();
+    window.addEventListener('popstate', syncRouteWithTab);
+    return () => window.removeEventListener('popstate', syncRouteWithTab);
+  }, []);
+
   const handleTabClick = (tab: Tab) => {
     console.log("Tab clicked:", tab);
-    if (!user && tab !== 'home' && tab !== 'pricing' && tab !== 'tender-update' && tab !== 'blog') {
+    if (!user && tab !== 'home' && tab !== 'pricing' && tab !== 'tender-update' && tab !== 'blog' && tab !== 'terms') {
       setSignupMode('signup');
       setShowSignup(true);
     } else {
       setActiveTab(tab);
+      const targetPath = tab === 'home' ? '/' : `/${tab}`;
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState({ tab }, '', targetPath);
+      }
     }
   };
 
@@ -1196,6 +1237,7 @@ export default function App() {
           )
         )}
         {activeTab === 'pricing' && <PricingView user={user} onUpdateUser={handleUpdateUser} onLoginRequest={() => setShowSignup(true)} />}
+        {activeTab === 'terms' && <TermsView onBackToHome={() => handleTabClick('home')} />}
         {activeTab === 'admin' && user?.isAdmin && <AdminDashboard currentApiKey={geminiApiKey} user={user} />}
       </main>
 
@@ -1218,12 +1260,45 @@ export default function App() {
               </p>
             </div>
             <div>
-              <h4 className="font-bold">Services</h4>
+              <h4 className="font-bold">Legal & Links</h4>
               <ul className="mt-4 space-y-2 text-sm text-slate-500">
-                <li>GeM Registration</li>
-                <li>Catalog Management</li>
-                <li>Bid Participation</li>
-                <li>MII Certification</li>
+                <li>
+                  <button 
+                    onClick={() => handleTabClick('home')}
+                    className="hover:text-sea-green hover:underline text-left transition-colors"
+                  >
+                    Home
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    onClick={() => handleTabClick('pricing')}
+                    className="hover:text-sea-green hover:underline text-left transition-colors"
+                  >
+                    Subscription Plans
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    onClick={() => handleTabClick('tender-update')}
+                    className="hover:text-sea-green hover:underline text-left transition-colors"
+                  >
+                    Tender Updates
+                  </button>
+                </li>
+                <li>
+                  <a 
+                    href="/terms" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleTabClick('terms');
+                    }}
+                    className="font-bold text-sea-green hover:underline text-left transition-colors inline-flex items-center gap-1"
+                  >
+                    <ShieldCheck size={14} />
+                    Terms & Conditions
+                  </a>
+                </li>
               </ul>
             </div>
             <div>
@@ -1245,8 +1320,23 @@ export default function App() {
               </ul>
             </div>
           </div>
-          <div className="mt-16 border-t border-slate-50 pt-8 text-center text-[10px] font-bold uppercase tracking-widest text-slate-400">
-            © 2026 A D Professional Solution. All rights reserved.
+          <div className="mt-16 border-t border-slate-100 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-medium text-slate-500">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+              © 2026 A D Professional Solution. All rights reserved.
+            </div>
+            <div className="flex items-center gap-6">
+              <a 
+                href="/terms"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleTabClick('terms');
+                }}
+                className="text-xs font-bold text-sea-green hover:underline flex items-center gap-1.5 transition-colors"
+              >
+                <ShieldCheck size={15} />
+                Terms & Conditions
+              </a>
+            </div>
           </div>
         </div>
       </footer>
@@ -1471,6 +1561,31 @@ function HomeView({ onServiceClick }: { onServiceClick: (tab: Tab) => void }) {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* Footer Legal Banner at bottom of Home Page */}
+      <section className="border-t border-slate-100 pt-8 flex flex-wrap items-center justify-between gap-4 bg-slate-50/80 border border-slate-100 p-6 rounded-2xl">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sea-green-light text-sea-green">
+            <Scale size={20} />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-slate-900">Legal & Platform Governance</h4>
+            <p className="text-xs text-slate-500">Review our terms of service, platform rules, and customer agreement.</p>
+          </div>
+        </div>
+        <a
+          href="/terms"
+          onClick={(e) => {
+            e.preventDefault();
+            onServiceClick('terms');
+          }}
+          className="inline-flex items-center gap-2 rounded-xl bg-sea-green px-5 py-2.5 text-xs font-bold text-white shadow-md hover:bg-sea-green-dark transition-all active:scale-95"
+        >
+          <ShieldCheck size={15} />
+          Read Terms & Conditions
+          <ChevronRight size={14} />
+        </a>
       </section>
     </div>
   );
