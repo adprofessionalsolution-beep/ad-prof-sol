@@ -17,7 +17,10 @@ import {
   ChevronRight, 
   Menu, 
   X,
+  Copy,
+  Check,
   QrCode,
+  ExternalLink,
   Loader2,
   Calendar,
   Clock,
@@ -3890,44 +3893,10 @@ function CertificateView() {
   );
 }
 
-// Razorpay Payment Button Component for subscriptions
-function RazorpayPaymentButton({ buttonId }: { buttonId: string }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    
-    // Clear the container to prevent duplicates
-    containerRef.current.innerHTML = '';
-    
-    const form = document.createElement('form');
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/payment-button.js';
-    script.setAttribute('data-payment_button_id', buttonId);
-    script.async = true;
-    
-    form.appendChild(script);
-    containerRef.current.appendChild(form);
-
-    return () => {
-      if (containerRef.current) {
-        containerRef.current.innerHTML = '';
-      }
-    };
-  }, [buttonId]);
-
-  return (
-    <div 
-      ref={containerRef} 
-      className="flex justify-center items-center my-4 min-h-[60px] p-2 bg-emerald-50/50 rounded-xl border border-emerald-100" 
-      id="razorpay-button-container" 
-    />
-  );
-}
-
 function PricingView({ user, onUpdateUser, onLoginRequest }: { user: UserData | null, onUpdateUser: (user: UserData) => void, onLoginRequest: () => void }) {
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
-  const [hasInitiatedPayment, setHasInitiatedPayment] = useState(false);
+  const [txnId, setTxnId] = useState('');
+  const [copied, setCopied] = useState(false);
   const upiId = "9851334382@ptyes"; // Updated UPI ID
   const upiName = "A D professional Solution";
 
@@ -3983,7 +3952,35 @@ function PricingView({ user, onUpdateUser, onLoginRequest }: { user: UserData | 
       return;
     }
     setSelectedPlan(plan);
-    setHasInitiatedPayment(false);
+    setTxnId('');
+  };
+
+  const handleCopyUpi = () => {
+    navigator.clipboard.writeText(upiId);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleConfirmActivation = async () => {
+    if (!selectedPlan || !user) return;
+
+    let subEnd: string | null = null;
+    if (selectedPlan.period === 'year') {
+      subEnd = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+    } else if (selectedPlan.period === 'month' && selectedPlan.price !== "0") {
+      subEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    }
+
+    await onUpdateUser({ 
+      ...user, 
+      plan: selectedPlan.name, 
+      subscriptionEnd: subEnd 
+    });
+
+    const activePlanName = selectedPlan.name;
+    setSelectedPlan(null);
+    setTxnId('');
+    alert(`Successfully activated ${activePlanName}! Thank you for your subscription.`);
   };
 
   return (
@@ -4037,14 +4034,17 @@ function PricingView({ user, onUpdateUser, onLoginRequest }: { user: UserData | 
         ))}
       </div>
 
-      {/* Payment Modal for Desktop */}
+      {/* Payment Modal */}
       {selectedPlan && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl">
             <div className="mb-6 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-slate-900">Complete Payment</h3>
+              <h3 className="text-xl font-bold text-slate-900">Subscribe to Plan</h3>
               <button 
-                onClick={() => setSelectedPlan(null)}
+                onClick={() => {
+                  setSelectedPlan(null);
+                  setTxnId('');
+                }}
                 className="rounded-full p-2 hover:bg-sea-green-light"
               >
                 <X size={20} />
@@ -4058,50 +4058,92 @@ function PricingView({ user, onUpdateUser, onLoginRequest }: { user: UserData | 
                 <p className="mt-2 text-3xl font-bold text-slate-900">₹{selectedPlan.price}</p>
               </div>
 
-              {selectedPlan.name === "Pro Monthly" && (
-                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/20 p-4 text-center space-y-2">
-                  <p className="text-xs font-extrabold text-emerald-800 uppercase tracking-widest flex items-center justify-center gap-1">
-                    <span>⚡</span> Instant Online Payment
+              {(selectedPlan.name === "Pro Monthly" || selectedPlan.name === "Yearly Plan") && (
+                <div className="rounded-2xl border border-sea-green/30 bg-sea-green-light/40 p-4 text-center space-y-2.5">
+                  <p className="text-xs font-extrabold text-sea-green-dark uppercase tracking-widest flex items-center justify-center gap-1">
+                    <span>⚡</span> Instant Payment via Cashfree
                   </p>
-                  <p className="text-[11px] leading-relaxed text-slate-500">
-                    Pay securely using Card, Netbanking, UPI, or Wallet. Your Pro activation will be processed automatically:
+                  <p className="text-xs text-slate-600">
+                    Pay securely using Card, Netbanking, UPI, or Wallet on Cashfree:
                   </p>
-                  <RazorpayPaymentButton buttonId="pl_TD37RtftTrBHjd" />
-                </div>
-              )}
-
-              {selectedPlan.name === "Yearly Plan" && (
-                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/20 p-4 text-center space-y-2">
-                  <p className="text-xs font-extrabold text-emerald-800 uppercase tracking-widest flex items-center justify-center gap-1">
-                    <span>⚡</span> Instant Online Payment
-                  </p>
-                  <p className="text-[11px] leading-relaxed text-slate-500">
-                    Pay securely using Card, Netbanking, UPI, or Wallet. Your Yearly activation will be processed automatically:
-                  </p>
-                  <RazorpayPaymentButton buttonId="pl_TD3U9gIzv3tyLV" />
-                </div>
-              )}
-
-              <div className="flex flex-col gap-3 pt-4">
-                {selectedPlan.name === "Free Plan" && (
-                  <button 
-                    onClick={async () => {
-                      await onUpdateUser({ 
-                        ...user!, 
-                        plan: selectedPlan.name, 
-                        subscriptionEnd: null 
-                      });
-                      setSelectedPlan(null);
-                      alert(`Successfully activated ${selectedPlan.name}!`);
-                    }}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-sea-green py-3.5 text-sm font-bold text-white shadow-lg hover:bg-sea-green-dark transition-all active:scale-95"
+                  <a
+                    href="https://payments.cashfree.com/forms/adpspromonthly"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full rounded-xl bg-sea-green py-3 text-xs font-bold text-white shadow-md hover:bg-sea-green-dark transition-all active:scale-95"
                   >
-                    Confirm & Activate {selectedPlan.name}
-                  </button>
-                )}
+                    <ExternalLink size={16} />
+                    Pay ₹{selectedPlan.price} on Cashfree
+                  </a>
+                </div>
+              )}
+
+              {selectedPlan.price !== "0" && (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-5 text-left space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">UPI Payment Details</p>
+                      <p className="text-sm font-bold text-slate-900">{upiName}</p>
+                    </div>
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sea-green-light text-sea-green">
+                      <QrCode size={20} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-slate-600">UPI ID for Payment:</label>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 rounded-xl bg-white border border-slate-200 px-3.5 py-2.5 text-sm font-mono font-bold text-slate-800 shadow-sm select-all">
+                        {upiId}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleCopyUpi}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-sea-green px-3.5 py-2.5 text-xs font-bold text-white shadow hover:bg-sea-green-dark transition-all active:scale-95 shrink-0"
+                      >
+                        {copied ? <Check size={14} /> : <Copy size={14} />}
+                        {copied ? 'Copied' : 'Copy'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="pt-1">
+                    <a
+                      href={`upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiName)}&am=${selectedPlan.price}&cu=INR`}
+                      className="flex items-center justify-center gap-2 w-full rounded-xl bg-emerald-600 py-3 text-xs font-bold text-white shadow-md hover:bg-emerald-700 transition-all active:scale-95"
+                    >
+                      <CreditCard size={16} />
+                      Pay ₹{selectedPlan.price} via UPI App
+                    </a>
+                  </div>
+
+                  <div className="space-y-1.5 pt-2 border-t border-slate-200">
+                    <label className="text-xs font-medium text-slate-600">Transaction Ref / UTR No. (Optional):</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 420192837461"
+                      value={txnId}
+                      onChange={(e) => setTxnId(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:border-sea-green focus:outline-none bg-white"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-3 pt-2">
+                <button 
+                  onClick={handleConfirmActivation}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-sea-green py-3.5 text-sm font-bold text-white shadow-lg hover:bg-sea-green-dark transition-all active:scale-95"
+                >
+                  <CheckCircle2 size={18} />
+                  {selectedPlan.price === "0" 
+                    ? `Confirm & Activate ${selectedPlan.name}` 
+                    : `Confirm Payment & Activate ${selectedPlan.name}`}
+                </button>
                 <button 
                   onClick={() => {
                     setSelectedPlan(null);
+                    setTxnId('');
                   }}
                   className="rounded-xl bg-slate-100 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-200 transition-all"
                 >
