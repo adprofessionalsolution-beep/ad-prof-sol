@@ -4067,7 +4067,7 @@ function PricingView({ user, onUpdateUser, onLoginRequest }: { user: UserData | 
                     Pay securely using Card, Netbanking, UPI, or Wallet on Cashfree:
                   </p>
                   <a
-                    href="https://payments.cashfree.com/forms/adpspromonthly"
+                    href={selectedPlan.name === "Yearly Plan" ? "https://payments.cashfree.com/forms/adpsyearly" : "https://payments.cashfree.com/forms/adpspromonthly"}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 w-full rounded-xl bg-sea-green py-3 text-xs font-bold text-white shadow-md hover:bg-sea-green-dark transition-all active:scale-95"
