@@ -17,6 +17,8 @@ import {
   ChevronRight, 
   Menu, 
   X,
+  Home,
+  BookOpen,
   Copy,
   Check,
   QrCode,
@@ -823,6 +825,24 @@ export default function App() {
     return () => window.removeEventListener('popstate', syncRouteWithTab);
   }, []);
 
+  useEffect(() => {
+    if (isMenuOpen) {
+      document.body.style.overflow = 'hidden';
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setIsMenuOpen(false);
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = '';
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    } else {
+      document.body.style.overflow = '';
+    }
+  }, [isMenuOpen]);
+
   const handleTabClick = (tab: Tab) => {
     console.log("Tab clicked:", tab);
     if (!user && tab !== 'home' && tab !== 'pricing' && tab !== 'tender-update' && tab !== 'blog' && tab !== 'terms' && tab !== 'privacy' && tab !== 'refund') {
@@ -1094,150 +1114,305 @@ export default function App() {
 
           {/* Mobile Menu Toggle */}
           <button 
-            className="md:hidden"
+            className="flex h-11 w-11 items-center justify-center rounded-xl text-slate-700 transition-colors hover:bg-slate-100 active:scale-95 md:hidden"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
+            aria-label={isMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={isMenuOpen}
           >
             {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
 
-        {/* Mobile Nav */}
+        {/* Mobile Slide-over Navigation Sidebar */}
         <AnimatePresence>
           {isMenuOpen && (
-            <motion.div 
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="border-t border-slate-100 bg-white md:hidden"
-            >
-              <div className="flex flex-col gap-2 p-4">
-                <button 
-                  onClick={() => { handleTabClick('home'); setIsMenuOpen(false); }} 
-                  className={cn(
-                    "rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider transition-colors",
-                    activeTab === 'home' ? "bg-sea-green text-white" : "text-slate-600 hover:bg-sea-green-light"
-                  )}
-                >
-                  Home
-                </button>
-                <button 
-                  onClick={() => { handleTabClick('analyzer'); setIsMenuOpen(false); }} 
-                  className={cn(
-                    "rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider transition-colors",
-                    activeTab === 'analyzer' ? "bg-sea-green text-white" : "text-slate-600 hover:bg-sea-green-light"
-                  )}
-                >
-                  AI Bid Analyzer
-                </button>
-                <button 
-                  onClick={() => { handleTabClick('rate-analyzer'); setIsMenuOpen(false); }} 
-                  className={cn(
-                    "rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider transition-colors",
-                    activeTab === 'rate-analyzer' ? "bg-sea-green text-white" : "text-slate-600 hover:bg-sea-green-light"
-                  )}
-                >
-                  Bid Rate Analyzer
-                </button>
-                <button 
-                  onClick={() => { handleTabClick('tender-update'); setIsMenuOpen(false); }} 
-                  className={cn(
-                    "rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider transition-colors",
-                    activeTab === 'tender-update' ? "bg-sea-green text-white" : "text-slate-600 hover:bg-sea-green-light"
-                  )}
-                >
-                  Tender Update
-                </button>
-                <button 
-                  onClick={() => { handleTabClick('blog'); setIsMenuOpen(false); }} 
-                  className={cn(
-                    "rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider transition-colors",
-                    activeTab === 'blog' ? "bg-sea-green text-white" : "text-slate-600 hover:bg-sea-green-light"
-                  )}
-                >
-                  Blog
-                </button>
-                
-                <div className="border-y border-sea-green-light py-2">
-                  <button 
-                    onClick={() => setIsBidDocsOpen(!isBidDocsOpen)}
-                    className="flex w-full items-center justify-between px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-sea-green transition-colors"
-                  >
-                    Bid Documents
-                    <ChevronDown size={14} className={cn("transition-transform", isBidDocsOpen ? "rotate-180" : "")} />
-                  </button>
-                  <AnimatePresence>
-                    {isBidDocsOpen && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden"
-                      >
-                        <button onClick={() => { handleTabClick('certificate'); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-3 text-left font-bold text-slate-600 hover:bg-sea-green-light"><FileCheck size={18} /> MII Certificate</button>
-                        <button onClick={() => { handleTabClick('escalation'); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-3 text-left font-bold text-slate-600 hover:bg-sea-green-light"><Users size={18} /> Escalation Matrix</button>
-                        <button onClick={() => { handleTabClick('bankruptcy'); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-3 text-left font-bold text-slate-600 hover:bg-sea-green-light"><Scale size={18} /> Non-bankruptcy</button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-                <button 
-                  onClick={() => { handleTabClick('pricing'); setIsMenuOpen(false); }} 
-                  className={cn(
-                    "rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider transition-colors",
-                    activeTab === 'pricing' ? "bg-sea-green text-white" : "text-slate-600 hover:bg-sea-green-light"
-                  )}
-                >
-                  Pricing
-                </button>
-                <button 
-                  onClick={() => { setShowContact(true); setIsMenuOpen(false); }} 
-                  className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light"
-                >
-                  Contact Us
-                </button>
-                {user ? (
-                  <>
-                    {user.isAdmin && (
-                      <button onClick={() => { handleTabClick('admin'); setIsMenuOpen(false); }} className="rounded-xl px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600 hover:bg-sea-green-light">Admin</button>
-                    )}
-                    <div className="mt-4 flex items-center justify-between rounded-2xl bg-sea-green-light p-4">
-                      <div className="flex items-center gap-4">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sea-green text-white font-bold text-xl">
-                          {user.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-bold text-slate-900">{user.name}</p>
-                          <p className="text-xs text-slate-500">{user.email}</p>
-                          <p className="text-[10px] text-sea-green font-medium mt-1">{user.whatsapp}</p>
-                        </div>
-                      </div>
-                      <button 
-                        onClick={() => { handleLogout(); setIsMenuOpen(false); }}
-                        className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-red-500 shadow-sm hover:bg-red-50 transition-colors"
-                        title="Logout"
-                      >
-                        <LogOut size={20} />
-                      </button>
+            <>
+              {/* Backdrop Overlay */}
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => setIsMenuOpen(false)}
+                className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm md:hidden"
+                aria-hidden="true"
+              />
+
+              {/* Sidebar Drawer */}
+              <motion.aside 
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+                className="fixed inset-y-0 right-0 z-50 flex h-full w-[88vw] max-w-sm flex-col bg-white shadow-2xl md:hidden"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Navigation Menu"
+              >
+                {/* Sidebar Header */}
+                <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sea-green text-white shadow-sm font-black text-sm tracking-wider">
+                      AD
                     </div>
-                  </>
-                ) : (
-                  <div className="mt-4 flex flex-col gap-3">
+                    <div>
+                      <h2 className="text-sm font-extrabold text-slate-900 leading-tight">A D Professional</h2>
+                      <p className="text-[11px] font-medium text-slate-500">GeM & Tender Consultant</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setIsMenuOpen(false)}
+                    aria-label="Close navigation menu"
+                    className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors active:scale-95"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                {/* Sidebar Scrollable Body */}
+                <div className="flex-1 overflow-y-auto px-4 py-5 space-y-6 overscroll-contain">
+                  {/* Section 1: Main Tools & Pages */}
+                  <div className="space-y-1">
+                    <p className="px-3 pb-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      Navigation & Tools
+                    </p>
                     <button 
-                      onClick={() => { setSignupMode('login'); setShowSignup(true); setIsMenuOpen(false); }}
-                      className="rounded-xl border border-slate-200 py-4 text-center font-bold uppercase tracking-widest text-slate-600"
+                      onClick={() => { handleTabClick('home'); setIsMenuOpen(false); }} 
+                      className={cn(
+                        "flex items-center gap-3.5 w-full px-3.5 py-3 rounded-xl font-bold text-sm tracking-wide transition-all active:scale-[0.98]",
+                        activeTab === 'home' 
+                          ? "bg-sea-green text-white shadow-md shadow-sea-green/20" 
+                          : "text-slate-700 hover:bg-sea-green-light hover:text-sea-green-dark"
+                      )}
                     >
-                      Sign In
+                      <Home size={18} className={activeTab === 'home' ? 'text-white' : 'text-sea-green'} />
+                      <span>Home</span>
                     </button>
+
                     <button 
-                      onClick={() => { setSignupMode('signup'); setShowSignup(true); setIsMenuOpen(false); }}
-                      className="rounded-xl bg-sea-green py-4 text-center font-black uppercase tracking-widest text-white shadow-lg"
+                      onClick={() => { handleTabClick('analyzer'); setIsMenuOpen(false); }} 
+                      className={cn(
+                        "flex items-center justify-between w-full px-3.5 py-3 rounded-xl font-bold text-sm tracking-wide transition-all active:scale-[0.98]",
+                        activeTab === 'analyzer' 
+                          ? "bg-sea-green text-white shadow-md shadow-sea-green/20" 
+                          : "text-slate-700 hover:bg-sea-green-light hover:text-sea-green-dark"
+                      )}
                     >
-                      Sign Up
+                      <div className="flex items-center gap-3.5">
+                        <FileText size={18} className={activeTab === 'analyzer' ? 'text-white' : 'text-sea-green'} />
+                        <span>AI Bid Analyzer</span>
+                      </div>
+                      <span className={cn(
+                        "text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full",
+                        activeTab === 'analyzer' ? "bg-white/20 text-white" : "bg-sea-green-light text-sea-green-dark"
+                      )}>
+                        AI
+                      </span>
+                    </button>
+
+                    <button 
+                      onClick={() => { handleTabClick('rate-analyzer'); setIsMenuOpen(false); }} 
+                      className={cn(
+                        "flex items-center gap-3.5 w-full px-3.5 py-3 rounded-xl font-bold text-sm tracking-wide transition-all active:scale-[0.98]",
+                        activeTab === 'rate-analyzer' 
+                          ? "bg-sea-green text-white shadow-md shadow-sea-green/20" 
+                          : "text-slate-700 hover:bg-sea-green-light hover:text-sea-green-dark"
+                      )}
+                    >
+                      <Calculator size={18} className={activeTab === 'rate-analyzer' ? 'text-white' : 'text-sea-green'} />
+                      <span>Bid Rate Analyzer</span>
+                    </button>
+
+                    <button 
+                      onClick={() => { handleTabClick('tender-update'); setIsMenuOpen(false); }} 
+                      className={cn(
+                        "flex items-center justify-between w-full px-3.5 py-3 rounded-xl font-bold text-sm tracking-wide transition-all active:scale-[0.98]",
+                        activeTab === 'tender-update' 
+                          ? "bg-sea-green text-white shadow-md shadow-sea-green/20" 
+                          : "text-slate-700 hover:bg-sea-green-light hover:text-sea-green-dark"
+                      )}
+                    >
+                      <div className="flex items-center gap-3.5">
+                        <Calendar size={18} className={activeTab === 'tender-update' ? 'text-white' : 'text-sea-green'} />
+                        <span>Tender Updates</span>
+                      </div>
+                      {tenderUpdates.length > 0 && (
+                        <span className={cn(
+                          "text-[10px] font-bold px-2 py-0.5 rounded-full",
+                          activeTab === 'tender-update' ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-800"
+                        )}>
+                          {tenderUpdates.length}
+                        </span>
+                      )}
+                    </button>
+
+                    <button 
+                      onClick={() => { handleTabClick('blog'); setIsMenuOpen(false); }} 
+                      className={cn(
+                        "flex items-center gap-3.5 w-full px-3.5 py-3 rounded-xl font-bold text-sm tracking-wide transition-all active:scale-[0.98]",
+                        activeTab === 'blog' 
+                          ? "bg-sea-green text-white shadow-md shadow-sea-green/20" 
+                          : "text-slate-700 hover:bg-sea-green-light hover:text-sea-green-dark"
+                      )}
+                    >
+                      <BookOpen size={18} className={activeTab === 'blog' ? 'text-white' : 'text-sea-green'} />
+                      <span>Blog & Guides</span>
                     </button>
                   </div>
-                )}
-              </div>
-            </motion.div>
+
+                  {/* Section 2: Bid Documentation Tools */}
+                  <div className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-2">
+                    <button 
+                      onClick={() => setIsBidDocsOpen(!isBidDocsOpen)}
+                      className="flex w-full items-center justify-between px-3 py-2 text-xs font-black uppercase tracking-wider text-slate-500 hover:text-sea-green transition-colors"
+                      aria-expanded={isBidDocsOpen}
+                    >
+                      <span className="flex items-center gap-2">
+                        <FileCheck size={16} className="text-sea-green" />
+                        Bid Documentation
+                      </span>
+                      <ChevronDown size={15} className={cn("transition-transform duration-200", isBidDocsOpen ? "rotate-180" : "")} />
+                    </button>
+                    <AnimatePresence>
+                      {isBidDocsOpen && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="overflow-hidden space-y-1 pt-1"
+                        >
+                          <button 
+                            onClick={() => { handleTabClick('certificate'); setIsMenuOpen(false); }} 
+                            className={cn(
+                              "flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all",
+                              activeTab === 'certificate' ? "bg-sea-green text-white shadow-sm" : "text-slate-600 hover:bg-white"
+                            )}
+                          >
+                            <FileCheck size={16} /> MII Certificate
+                          </button>
+                          <button 
+                            onClick={() => { handleTabClick('escalation'); setIsMenuOpen(false); }} 
+                            className={cn(
+                              "flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all",
+                              activeTab === 'escalation' ? "bg-sea-green text-white shadow-sm" : "text-slate-600 hover:bg-white"
+                            )}
+                          >
+                            <Users size={16} /> Escalation Matrix
+                          </button>
+                          <button 
+                            onClick={() => { handleTabClick('bankruptcy'); setIsMenuOpen(false); }} 
+                            className={cn(
+                              "flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all",
+                              activeTab === 'bankruptcy' ? "bg-sea-green text-white shadow-sm" : "text-slate-600 hover:bg-white"
+                            )}
+                          >
+                            <Scale size={16} /> Non-bankruptcy Affidavit
+                          </button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Section 3: Plans, Contact & Admin */}
+                  <div className="space-y-1">
+                    <p className="px-3 pb-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      Plans & Inquiries
+                    </p>
+                    <button 
+                      onClick={() => { handleTabClick('pricing'); setIsMenuOpen(false); }} 
+                      className={cn(
+                        "flex items-center gap-3.5 w-full px-3.5 py-3 rounded-xl font-bold text-sm tracking-wide transition-all active:scale-[0.98]",
+                        activeTab === 'pricing' 
+                          ? "bg-sea-green text-white shadow-md shadow-sea-green/20" 
+                          : "text-slate-700 hover:bg-sea-green-light hover:text-sea-green-dark"
+                      )}
+                    >
+                      <CreditCard size={18} className={activeTab === 'pricing' ? 'text-white' : 'text-sea-green'} />
+                      <span>Pricing Plans</span>
+                    </button>
+
+                    <button 
+                      onClick={() => { setShowContact(true); setIsMenuOpen(false); }} 
+                      className="flex items-center gap-3.5 w-full px-3.5 py-3 rounded-xl font-bold text-sm tracking-wide text-slate-700 hover:bg-sea-green-light hover:text-sea-green-dark transition-all active:scale-[0.98]"
+                    >
+                      <MessageCircle size={18} className="text-sea-green" />
+                      <span>Contact Us</span>
+                    </button>
+
+                    {user?.isAdmin && (
+                      <button 
+                        onClick={() => { handleTabClick('admin'); setIsMenuOpen(false); }} 
+                        className={cn(
+                          "flex items-center gap-3.5 w-full px-3.5 py-3 rounded-xl font-bold text-sm tracking-wide transition-all active:scale-[0.98]",
+                          activeTab === 'admin' 
+                            ? "bg-sea-green text-white shadow-md shadow-sea-green/20" 
+                            : "text-slate-700 bg-amber-50/60 border border-amber-200/50 hover:bg-amber-100/60"
+                        )}
+                      >
+                        <ShieldCheck size={18} className={activeTab === 'admin' ? 'text-white' : 'text-amber-600'} />
+                        <span className="flex-1 text-left">Admin Dashboard</span>
+                        <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-200/60 text-amber-900">
+                          Panel
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Sidebar Footer */}
+                <div className="border-t border-slate-100 bg-slate-50/80 p-4">
+                  {user ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between rounded-2xl bg-white border border-slate-200/80 p-3 shadow-sm">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sea-green text-white font-black text-base shadow-sm">
+                            {user.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-extrabold text-slate-900">{user.name}</p>
+                            <p className="truncate text-[10px] text-slate-500">{user.email}</p>
+                            <span className="inline-block mt-0.5 text-[9px] font-black uppercase tracking-wider text-sea-green-dark">
+                              {user.plan || 'Free Plan'}
+                            </span>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => { handleLogout(); setIsMenuOpen(false); }}
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-500 transition-colors active:scale-95"
+                          title="Logout"
+                          aria-label="Log out"
+                        >
+                          <LogOut size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <button 
+                          onClick={() => { setSignupMode('login'); setShowSignup(true); setIsMenuOpen(false); }}
+                          className="flex h-11 items-center justify-center rounded-xl border border-slate-300 bg-white text-xs font-bold uppercase tracking-wider text-slate-700 shadow-sm transition-all hover:bg-slate-50 active:scale-95"
+                        >
+                          Sign In
+                        </button>
+                        <button 
+                          onClick={() => { setSignupMode('signup'); setShowSignup(true); setIsMenuOpen(false); }}
+                          className="flex h-11 items-center justify-center rounded-xl bg-sea-green text-xs font-black uppercase tracking-wider text-white shadow-md transition-all hover:bg-sea-green-dark active:scale-95"
+                        >
+                          Sign Up
+                        </button>
+                      </div>
+                      <button 
+                        onClick={() => { setSignupMode('admin'); setShowSignup(true); setIsMenuOpen(false); }}
+                        className="w-full text-center py-1.5 text-[11px] font-bold text-slate-500 hover:text-sea-green transition-colors"
+                      >
+                        Admin Portal Login
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </motion.aside>
+            </>
           )}
         </AnimatePresence>
       </nav>
