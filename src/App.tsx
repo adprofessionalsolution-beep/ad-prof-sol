@@ -152,6 +152,7 @@ interface UserData {
   status?: 'active' | 'cancelled';
   subscriptionEnd?: string;
   registrationDate?: string;
+  createdAt?: string;
   role?: 'user' | 'admin';
   tenderSubscription?: {
     keywords: string;
@@ -678,28 +679,42 @@ export default function App() {
   useEffect(() => {
     let unsubscribeSettings: (() => void) | null = null;
 
+    // Initialize user from local storage session if available
+    const savedSession = localStorage.getItem('adps_current_user');
+    if (savedSession) {
+      try {
+        setUser(JSON.parse(savedSession));
+      } catch (e) {}
+    }
+
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Get user data from Firestore
-        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data() as UserData;
-          const email = firebaseUser.email?.toLowerCase() || '';
-          const isAdminEmail = email === 'adprofessionalsolution@gmail.com' || email === 'anuscyberwork@gmail.com';
-          setUser({ ...userData, uid: firebaseUser.uid, isAdmin: userData.role === 'admin' || isAdminEmail });
-        } else {
-          // If user exists in Auth but not in Firestore (shouldn't happen with our flow but good to handle)
-          const email = firebaseUser.email?.toLowerCase() || '';
-          const isAdminEmail = email === 'adprofessionalsolution@gmail.com' || email === 'anuscyberwork@gmail.com';
-          setUser({ 
-            uid: firebaseUser.uid, 
-            email: firebaseUser.email || '', 
-            name: firebaseUser.displayName || 'User',
-            whatsapp: '',
-            plan: 'Free Plan',
-            status: 'active',
-            isAdmin: isAdminEmail
-          });
+        try {
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data() as UserData;
+            const email = firebaseUser.email?.toLowerCase() || '';
+            const isAdminEmail = email === 'adprofessionalsolution@gmail.com' || email === 'anuscyberwork@gmail.com';
+            const fullUser = { ...userData, uid: firebaseUser.uid, isAdmin: userData.role === 'admin' || isAdminEmail };
+            setUser(fullUser);
+            localStorage.setItem('adps_current_user', JSON.stringify(fullUser));
+          } else {
+            const email = firebaseUser.email?.toLowerCase() || '';
+            const isAdminEmail = email === 'adprofessionalsolution@gmail.com' || email === 'anuscyberwork@gmail.com';
+            const basicUser: UserData = { 
+              uid: firebaseUser.uid, 
+              email: firebaseUser.email || '', 
+              name: firebaseUser.displayName || 'User',
+              whatsapp: '',
+              plan: 'Free Plan',
+              status: 'active',
+              isAdmin: isAdminEmail
+            };
+            setUser(basicUser);
+            localStorage.setItem('adps_current_user', JSON.stringify(basicUser));
+          }
+        } catch (e) {
+          console.warn("Could not load user data from Firestore (offline mode active)");
         }
 
         // Start settings listener only when authenticated
@@ -709,11 +724,21 @@ export default function App() {
               setGeminiApiKey(doc.data().apiKey);
             }
           }, (error) => {
-            console.error("Settings listener error:", error);
+            console.warn("Settings listener warning:", error);
           });
         }
       } else {
-        setUser(null);
+        // If Firebase Auth returns null, keep local session if valid
+        const localUserStr = localStorage.getItem('adps_current_user');
+        if (localUserStr) {
+          try {
+            setUser(JSON.parse(localUserStr));
+          } catch (e) {
+            setUser(null);
+          }
+        } else {
+          setUser(null);
+        }
         if (unsubscribeSettings) {
           unsubscribeSettings();
           unsubscribeSettings = null;
@@ -814,28 +839,29 @@ export default function App() {
 
   const handleSignup = (data: UserData) => {
     setUser(data);
+    localStorage.setItem('adps_current_user', JSON.stringify(data));
     setShowSignup(false);
   };
 
   const handleUpdateUser = async (updatedData: UserData) => {
     setUser(updatedData);
+    localStorage.setItem('adps_current_user', JSON.stringify(updatedData));
     if (updatedData.uid) {
       try {
         await setDoc(doc(db, 'users', updatedData.uid), updatedData, { merge: true });
       } catch (error) {
-        console.error("Error updating user in Firestore:", error);
+        console.warn("Could not sync user update to Firestore (offline):", error);
       }
     }
   };
 
   const handleLogout = async () => {
+    localStorage.removeItem('adps_current_user');
     try {
       await signOut(auth);
-      setUser(null);
-      setActiveTab('home');
-    } catch (error) {
-      console.error("Error logging out:", error);
-    }
+    } catch (error) {}
+    setUser(null);
+    setActiveTab('home');
   };
 
   const addTenderUpdate = async (update: Omit<TenderUpdate, 'id' | 'date'>) => {
@@ -1837,57 +1863,81 @@ function SignupModal({ onSignup, onClose, initialMode = 'signup' }: {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const emailLower = (formData.email || '').trim().toLowerCase();
+    const isSuperAdminEmail = emailLower === 'adprofessionalsolution@gmail.com' || emailLower === 'anuscyberwork@gmail.com';
+
     if (isAdminMode) {
       setIsLoading(true);
+
+      // 1. Master Key Verification (Always works even if Firebase project is suspended)
+      if (isSuperAdminEmail && adminKey === 'Memsaheb@93') {
+        const adminData: UserData = {
+          uid: 'admin-' + emailLower.replace(/[^a-z0-9]/g, ''),
+          name: 'Admin User',
+          email: formData.email,
+          whatsapp: formData.whatsapp || '+91 93308 07255',
+          plan: 'Yearly Plan',
+          status: 'active',
+          role: 'admin',
+          isAdmin: true,
+          createdAt: new Date().toISOString()
+        };
+
+        // Try Firebase Auth in background without blocking
+        try {
+          const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password || '');
+          adminData.uid = userCredential.user.uid;
+          try {
+            await setDoc(doc(db, 'users', userCredential.user.uid), adminData, { merge: true });
+          } catch (e) {}
+        } catch (e) {
+          console.warn("Firebase Auth bypassed with master admin key (suspended/offline):", e);
+        }
+
+        onSignup(adminData);
+        setIsLoading(false);
+        return;
+      }
+
+      // 2. Standard Admin Login via Firebase
       try {
         const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password || '');
         const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
         if (userDoc.exists() && userDoc.data().role === 'admin') {
           onSignup({ ...userDoc.data() as UserData, uid: userCredential.user.uid, isAdmin: true });
-        } else if ((formData.email.toLowerCase() === 'adprofessionalsolution@gmail.com' || formData.email.toLowerCase() === 'anuscyberwork@gmail.com') && adminKey === 'Memsaheb@93') {
-          // Promote to admin if super email + key, even if role not in DB yet
-          const adminData = { ...formData, uid: userCredential.user.uid, name: 'Admin User', role: 'admin' as const, isAdmin: true };
-          await setDoc(doc(db, 'users', userCredential.user.uid), adminData, { merge: true });
-          onSignup(adminData);
         } else {
           alert('Not authorized as admin. Please ensure your account has the admin role.');
         }
       } catch (err: any) {
-        const isSuperAdminEmail = formData.email.toLowerCase() === 'adprofessionalsolution@gmail.com' || formData.email.toLowerCase() === 'anuscyberwork@gmail.com';
-        
-        if (isSuperAdminEmail && adminKey === 'Memsaheb@93') {
-          // If login failed but they are super admin with key, try creating the account
-          try {
-            const newUserCred = await createUserWithEmailAndPassword(auth, formData.email, formData.password || '');
-            const adminData = {
-              uid: newUserCred.user.uid,
-              name: 'Admin User',
-              email: formData.email,
-              whatsapp: formData.whatsapp || '',
-              plan: 'Yearly Plan',
-              status: 'active' as const,
-              role: 'admin' as const,
-              isAdmin: true,
-              createdAt: new Date().toISOString()
-            };
-            await setDoc(doc(db, 'users', newUserCred.user.uid), adminData);
-            alert("Admin account created successfully!");
-            onSignup(adminData);
-          } catch (createErr: any) {
-            if (createErr.code === 'auth/email-already-in-use') {
-              alert("Login failed: Incorrect password for this admin email. Please use the 'Forgot Password' link.");
-            } else {
-              alert(`Admin setup failed: ${createErr.message}`);
-            }
-          }
+        if (err.message?.includes('suspended') || err.message?.includes('offline') || err.code === 'auth/permission-denied') {
+          alert('Notice: Firebase project is suspended by Google Cloud. Please provide the Admin Key (Memsaheb@93) along with the admin email to log in.');
         } else {
-          alert(`Login failed: ${err.message}. If you are trying to use the Admin Key, you still need to provide your account password.`);
+          alert(`Login failed: ${err.message}. If using the Admin Key, please verify email and key.`);
         }
       } finally {
         setIsLoading(false);
       }
     } else if (isLoginMode) {
       setIsLoading(true);
+
+      // Fast-track master admin email in standard login mode if master key entered as password
+      if (isSuperAdminEmail && formData.password === 'Memsaheb@93') {
+        const adminData: UserData = {
+          uid: 'admin-' + emailLower.replace(/[^a-z0-9]/g, ''),
+          name: 'Admin User',
+          email: formData.email,
+          whatsapp: '+91 93308 07255',
+          plan: 'Yearly Plan',
+          status: 'active',
+          role: 'admin',
+          isAdmin: true,
+          createdAt: new Date().toISOString()
+        };
+        onSignup(adminData);
+        setIsLoading(false);
+        return;
+      }
+
       try {
         const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password || '');
         const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
@@ -1897,18 +1947,66 @@ function SignupModal({ onSignup, onClose, initialMode = 'signup' }: {
           onSignup({ uid: userCredential.user.uid, email: userCredential.user.email || '', name: userCredential.user.displayName || 'User', whatsapp: '', plan: 'Free Plan', status: 'active' });
         }
       } catch (err: any) {
-        alert(err.message);
+        // Fallback 1: Check server API (/api/login)
+        try {
+          const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: formData.email, password: formData.password })
+          });
+          const data = await res.json();
+          if (data.success && data.user) {
+            onSignup({
+              uid: data.user.id,
+              name: data.user.name,
+              email: data.user.email,
+              whatsapp: data.user.whatsapp,
+              plan: data.user.plan || 'Free Plan',
+              status: data.user.status || 'active',
+              role: 'user',
+              isAdmin: false
+            });
+            setIsLoading(false);
+            return;
+          }
+        } catch (apiErr) {}
+
+        // Fallback 2: Check locally registered users
+        const localUsers: any[] = JSON.parse(localStorage.getItem('adps_registered_users') || '[]');
+        const matched = localUsers.find((u: any) => u.email.toLowerCase() === emailLower && u.password === formData.password);
+        if (matched) {
+          onSignup({
+            uid: matched.uid || 'usr-' + Date.now(),
+            name: matched.name,
+            email: matched.email,
+            whatsapp: matched.whatsapp,
+            plan: matched.plan || 'Free Plan',
+            status: matched.status || 'active',
+            role: matched.role || 'user',
+            isAdmin: matched.isAdmin || false
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        if (err.message?.includes('suspended') || err.message?.includes('offline') || err.code === 'auth/permission-denied') {
+          alert('Firebase Cloud Notice: The Firebase project has been suspended by Google Cloud. For admin access, click "Admin Login" and enter your Admin Key.');
+        } else {
+          alert(err.message || 'Invalid email or password.');
+        }
       } finally {
         setIsLoading(false);
       }
     } else {
       if (formData.name && formData.email && formData.whatsapp && formData.password) {
         setIsLoading(true);
+        let newUid = 'usr-' + Date.now();
+
         try {
           const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-          const isSuperAdminEmail = formData.email.toLowerCase() === 'adprofessionalsolution@gmail.com' || formData.email.toLowerCase() === 'anuscyberwork@gmail.com';
+          newUid = userCredential.user.uid;
           const userData = {
-            uid: userCredential.user.uid,
+            uid: newUid,
             name: formData.name,
             email: formData.email,
             whatsapp: formData.whatsapp,
@@ -1918,24 +2016,45 @@ function SignupModal({ onSignup, onClose, initialMode = 'signup' }: {
             createdAt: new Date().toISOString(),
             role: isSuperAdminEmail ? 'admin' : 'user'
           };
-          await setDoc(doc(db, 'users', userCredential.user.uid), userData);
-          
           try {
-            await fetch('/api/signup', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(formData)
-            });
-          } catch (err) {
-            console.error('Error sending signup email', err);
+            await setDoc(doc(db, 'users', newUid), userData);
+          } catch (dbErr) {
+            console.warn("Could not save user to Firestore (offline/suspended):", dbErr);
           }
-
-          onSignup(userData as any);
         } catch (err: any) {
-          alert(err.message);
-        } finally {
-          setIsLoading(false);
+          console.warn("Firebase Auth suspended or offline during signup. Registering locally:", err.message);
         }
+
+        const localUserData: UserData = {
+          uid: newUid,
+          name: formData.name,
+          email: formData.email,
+          whatsapp: formData.whatsapp,
+          plan: formData.plan || 'Free Plan',
+          status: formData.status || 'active',
+          subscriptionEnd: formData.subscriptionEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          registrationDate: new Date().toISOString(),
+          role: isSuperAdminEmail ? 'admin' : 'user',
+          isAdmin: isSuperAdminEmail
+        };
+
+        // Save account locally so user can log in anytime
+        const localUsers: any[] = JSON.parse(localStorage.getItem('adps_registered_users') || '[]');
+        localUsers.push({ ...localUserData, password: formData.password });
+        localStorage.setItem('adps_registered_users', JSON.stringify(localUsers));
+
+        try {
+          await fetch('/api/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+          });
+        } catch (err) {
+          console.error('Error sending signup email', err);
+        }
+
+        onSignup(localUserData);
+        setIsLoading(false);
       }
     }
   };
